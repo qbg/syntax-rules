@@ -5,6 +5,7 @@
 
 (def ar
   (make-apply-rules
+    'let
     '[(let [& var rhs] & body)]
     '[((fn [& var] & body) & rhs)]))
 
