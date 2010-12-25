@@ -34,10 +34,10 @@ current sequence.  The pattern variables appearing in these patterns must appear
 after the corresponding number of & in the template.
 
 If a symbol appearing in a pattern is not a pattern variable, on of two things
-will happen: if it is quote, def, var, or any symbol that can be
-namespace-qualified, then it will stay the same (in the case of quote, def, var,
-do, and recur), or be namespace-qualified (in all other cases).  If it is not
-one of those symbols, then the symbol will be automatically gensymed.
+will happen: if it is a special form, or any symbol that can be
+namespace-qualified, then it will stay the same, or be namespace-qualified (in
+all other cases).  If it is not one of those symbols, then the symbol will be
+automatically gensymed.
 
 For example, we can define a version of let that does bindings in parallel (like
 let from Common Lisp/Scheme) as so:

@@ -110,7 +110,8 @@
   (let [needed (filter #(or (nil? %) (not (resolve %))) syms)
         mappings (zipmap needed (map gensym needed))]
     (reduce #(assoc %1 %2 %2)
-      mappings '[quote def var recur do])))
+	    mappings '[quote def var recur do if throw try monitor-enter monitor-exit
+		       . new set!])))
 
 (defn fill-template
   [form state]
