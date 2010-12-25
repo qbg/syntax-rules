@@ -8,7 +8,7 @@
   [s1 s2]
   (if (= (:amp-depth s1) (inc (:amp-depth s2)))
     (assoc s1 :val (conj (:val s1) (:val s2)))
-    (throw (IllegalStateException. "Inconsistent amperstand depth"))))
+    (throw (IllegalStateException. "Inconsistent ampersand depth"))))
 
 (defn- merge-states
   [& states]

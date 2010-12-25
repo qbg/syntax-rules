@@ -21,7 +21,8 @@
 (deftest test-parse-list
   (are [form res] (= (#'pp/parse-list form) res)
     '(a 1 & b) '(:list (:variable a) (:literal 1) (:amp #{b} (:variable b)))
-    '(+literal a) '(:literal a)))
+    '(+literal a) '(:literal a)
+    '(+& a) '(:amp #{a} (:variable a))))
 
 (deftest test-parse-vector
   (are [form res] (= (#'pp/parse-vector form) res)

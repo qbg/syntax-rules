@@ -43,7 +43,8 @@
 (defn- parse-list
   [form]
   (cond
-    (= (first form) '+literal) `(:literal ~(second form))
+   (= (first form) '+literal) `(:literal ~(second form))
+   (= (first form) '+&) (parse-amp form)
     :else (parse-seq form :list)))
 
 (defn- parse-vector

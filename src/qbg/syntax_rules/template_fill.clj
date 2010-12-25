@@ -11,7 +11,7 @@
   (let [v (get state (second form))]
     (if (= (:amp-depth v) 0)
       (:val v)
-      (throw (IllegalStateException. "Inconsistent amperstand depth")))))
+      (throw (IllegalStateException. "Inconsistent ampersand depth")))))
 
 (defn- fill-symbol
   [form state mappings]
@@ -47,7 +47,7 @@
   (let [lengths (map #(count (:val (get state %))) vars)]
     (if (apply = lengths)
       true
-      (throw (IllegalStateException. "Variables under amperstand do not have equal lengths")))))
+      (throw (IllegalStateException. "Variables under ampersand do not have equal lengths")))))
 
 (defn- demote-vars
   [vars state]

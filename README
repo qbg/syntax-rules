@@ -16,10 +16,15 @@ successful rule, the corresponding template will be filled in and returned as
 the expansion.  Symbols appearing in the rule are pattern variables and will
 match any expression; in the template, they will be replaced with what they
 matched. Lists and vectors will match lists and vectors where each sub-pattern
-matches. Anything else is treated as a literal.  In addition, any list of the
-form (+literal item) in a rule/template will be treated such that item is a
-literal. This is useful for preventing the interpretation of items such as &
-that would otherwise have special behavior.
+matches. Anything else is treated as a literal.
+
+Any list of the form (+literal item) in a rule/template will be treated such
+that item is a literal. This is useful for preventing the interpretation of
+items such as & that would otherwise have special behavior.  A list of the form
+(+& <patterns>) is equivalent to & <patterns> except that other patterns may
+follow (& would normally consume all remaining patterns in the list).  Note
+during matching only the first ampersand clause will be used; all patterns
+after it will be ignored.  
 
 In the case that no rule matches the macro invocation, a bad syntax exception
 will be thrown that contains the incorrect code.
@@ -30,9 +35,9 @@ after the corresponding number of & in the template.
 
 If a symbol appearing in a pattern is not a pattern variable, on of two things
 will happen: if it is quote, def, var, or any symbol that can be
-namespace-qualified, then it will stay the same (in the case of quote, def, and
-var), or be namespace-qualified (in all other cases).  If it is not one of those
-symbols, then the symbol will be automatically gensymed.
+namespace-qualified, then it will stay the same (in the case of quote, def, var,
+do, and recur), or be namespace-qualified (in all other cases).  If it is not
+one of those symbols, then the symbol will be automatically gensymed.
 
 For example, we can define a version of let that does bindings in parallel (like
 let from Common Lisp/Scheme) as so:
