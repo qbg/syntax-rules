@@ -27,4 +27,6 @@
 
 (deftest test-fill-template
   (are [form res] (= (fill-template form {'a {:amp-depth 1 :val [1 2 3]}}) res)
-    '(:vector (:literal 1) (:literal 2) (:amp #{a} (:literal 3) (:variable a))) [1 2 3 1 3 2 3 3]))
+       '(:vector (:literal 1) (:literal 2) (:amp #{a} (:literal 3) (:variable a))) [1 2 3 1 3 2 3 3]
+       '(:symbol def) 'def
+       '(:symbol recur) 'recur))
