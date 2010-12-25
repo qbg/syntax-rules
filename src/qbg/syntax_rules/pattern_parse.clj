@@ -14,7 +14,7 @@
   ([form & forms]
     (reduce into (pattern-vars form) (map pattern-vars forms))))
 
-(declare parse-pattern)
+(declare parse-pattern parse-seq)
 
 (defn- parse-symbol
   [form]
@@ -27,29 +27,29 @@
 (defn- parse-amp
   [form]
   (let [templates (rest form)
-        body (map #(parse-pattern %) templates)
+        body (parse-seq templates)
         vars (apply pattern-vars body)]
     `(:amp ~vars ~@body)))
 
 (defn- parse-seq
-  [form tag]
-  (loop [res [tag], form (seq form)]
+  [form]
+  (loop [res [], form (seq form)]
     (if (seq form)
       (if (= (first form) '&)
         (recur (conj res (parse-amp form)) nil)
         (recur (conj res (parse-pattern (first form))) (next form)))
-      (apply list res))))
+      res)))
 
 (defn- parse-list
   [form]
   (cond
    (= (first form) '+literal) `(:literal ~(second form))
    (= (first form) '+&) (parse-amp form)
-    :else (parse-seq form :list)))
+    :else (cons :list (parse-seq form))))
 
 (defn- parse-vector
   [form]
-  (parse-seq form :vector))
+  (cons :vector (parse-seq form)))
 
 (defn parse-pattern
   [pattern]

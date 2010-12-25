@@ -55,4 +55,5 @@
 (deftest test-match-amp
   (are [pattern form result] (= (#'pm/match-amp pattern form) result)
     '(:amp #{a b} (:variable a) (:variable b)) '(1 2 3 4) {'a (ms 1 [1 3]) 'b (ms 1 [2 4])}
-    '(:amp #{a b} (:variable a) (:variable b)) '(1 2 3) false))
+    '(:amp #{a b} (:variable a) (:variable b)) '(1 2 3) false
+    '(:amp #{a b} (:variable a) (:list (:amp #{b} (:variable b)))) '(1 (2) 3 (4 5)) {'a (ms 1 [1 3]) 'b (ms 2 [[2] [4 5]])}))

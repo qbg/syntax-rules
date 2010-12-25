@@ -16,7 +16,8 @@
 (deftest test-parse-amp
   (are [form res] (= (#'pp/parse-amp form) res)
     '(& a b) '(:amp #{a b} (:variable a) (:variable b))
-    '(& (a b)) '(:amp #{a b} (:list (:variable a) (:variable b)))))
+    '(& (a b)) '(:amp #{a b} (:list (:variable a) (:variable b)))
+    '(& a & b) '(:amp #{a b} (:variable a) (:amp #{b} (:variable b)))))
 
 (deftest test-parse-list
   (are [form res] (= (#'pp/parse-list form) res)
