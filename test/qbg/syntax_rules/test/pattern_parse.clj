@@ -17,18 +17,18 @@
   (are [form res] (= (#'pp/parse-amp form) res)
     '(& a b) '(:amp #{a b} (:variable a) (:variable b))
     '(& (a b)) '(:amp #{a b} (:list (:variable a) (:variable b)))
-    '(& a & b) '(:amp #{a b} (:variable a) (:amp #{b} (:variable b)))))
+    '(& a b ...) '(:amp #{a b} (:variable a) (:amp #{b} (:variable b)))))
 
 (deftest test-parse-list
   (are [form res] (= (#'pp/parse-list form) res)
-    '(a 1 & b) '(:list (:variable a) (:literal 1) (:amp #{b} (:variable b)))
+    '(a 1 b ...) '(:list (:variable a) (:literal 1) (:amp #{b} (:variable b)))
     '(+literal a) '(:literal a)
     '(+describe "Foobar" 5) '(:describe "Foobar" (:literal 5))
     '(+& a) '(:amp #{a} (:variable a))))
 
 (deftest test-parse-vector
   (are [form res] (= (#'pp/parse-vector form) res)
-    '[a 1 & b] '(:vector (:variable a) (:literal 1) (:amp #{b} (:variable b)))))
+    '[a 1 b ...] '(:vector (:variable a) (:literal 1) (:amp #{b} (:variable b)))))
 
 (deftest test-parse-pattern
   (are [form res] (= (parse-pattern form) res)
@@ -54,7 +54,7 @@
     
     '1 '1 '(:literal 1) '(:literal 1)
     
-    '(let [& var rhs] body) '((fn [& var] body) & rhs)
+    '(let [(+& var rhs)] body) '((fn [var ...] body) rhs ...)
     '(:list (:variable let) (:vector (:amp #{var rhs} (:variable var) (:variable rhs))) (:variable body))
     '(:list (:list (:symbol fn) (:vector (:amp #{var} (:variable var))) (:variable body)) (:amp #{rhs} (:variable rhs)))
     ))

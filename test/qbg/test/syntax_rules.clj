@@ -6,8 +6,8 @@
 (def ar
   (make-apply-rules
     'let
-    '[(let [& var rhs] & body)]
-    '[((fn [& var] & body) & rhs)]))
+    '[(let [(+& var rhs)] body ...)]
+    '[((fn [var ...] body ...) rhs ...)]))
 
 (deftest test-apply-rules
   (are [form res] (= (ar form) res)

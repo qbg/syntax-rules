@@ -32,12 +32,18 @@
         vars (apply pattern-vars body)]
     `(:amp ~vars ~@body)))
 
+(defn- parse-ellipsis
+  [pattern]
+  (let [pat (parse-pattern pattern)
+	vars (pattern-vars pat)]
+    `(:amp ~vars ~pat)))
+
 (defn- parse-seq
   [form]
   (loop [res [], form (seq form)]
     (if (seq form)
-      (if (= (first form) '&)
-        (recur (conj res (parse-amp form)) nil)
+      (if (= (second form) '...)
+        (recur (conj res (parse-ellipsis (first form))) (nthnext form 2))
         (recur (conj res (parse-pattern (first form))) (next form)))
       res)))
 
