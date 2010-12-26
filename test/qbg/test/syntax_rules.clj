@@ -20,4 +20,5 @@
        [:f] [:l] true
        [:l] [:f] false
        [:i :f] [:f] false
-       [:f] [:i :f] true))
+       [:f] [:i :f] true
+       [:i :f :i] [:i :f :f] false))

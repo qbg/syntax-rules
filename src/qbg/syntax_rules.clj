@@ -10,6 +10,7 @@
    (and (empty? p1) (empty? p2)) false
    (and (empty? p1) (seq p2)) false
    (and (seq? p1) (empty? p2)) true
+   (= (first p1) (first p2)) (recur (next p1) (next p2))
    (= (first p2) :l) true
    (= (first p1) :l) false
    (= (first p2) :i) true
@@ -26,7 +27,7 @@
 	    (if (:good m)
 	      (tf/fill-template template (:vars m))
 	      (recur rt (conj results m))))
-	  (let [res (sort-by #(order-progress (:progress %1) (:progress %2)) results)
+	  (let [res (sort-by :progress (comparator order-progress) results)
 		res (first res)
 		form (:form res)
 		mesg (if-let [d (:describe res)]

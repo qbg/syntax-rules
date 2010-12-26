@@ -59,6 +59,10 @@
   [pstack]
   (move-sym pstack :f))
 
+(defn- move-in
+  [pstack]
+  (move-sym pstack :i))
+
 (defn- move-late
   [pstack]
   (move-sym pstack :l))
@@ -82,7 +86,8 @@
 	(assoc state
 	  :input input
 	  :pstack (move-forward (:pstack state)))
-	(assoc state :good false))
+	(assoc state :good false
+	       :pstack (move-in (:pstack state))))
       (assoc state :good false))))
 
 (defn- exe-push-vars
