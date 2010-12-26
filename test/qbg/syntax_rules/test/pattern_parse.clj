@@ -23,6 +23,7 @@
   (are [form res] (= (#'pp/parse-list form) res)
     '(a 1 & b) '(:list (:variable a) (:literal 1) (:amp #{b} (:variable b)))
     '(+literal a) '(:literal a)
+    '(+describe "Foobar" 5) '(:describe "Foobar" (:literal 5))
     '(+& a) '(:amp #{a} (:variable a))))
 
 (deftest test-parse-vector

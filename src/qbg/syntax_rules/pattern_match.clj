@@ -27,6 +27,10 @@
   [form state]
   `((:vector) ~@(mapcat #(compile-pattern % state) (rest form)) (:eos)))
 
+(defn- compile-describe
+  [form state]
+  `((:push-describe ~(second form)) ~@(compile-pattern (nth form 2)) (:pop-describe)))
+
 (defn- compile-pattern
   ([form state]
      ((condp = (first form)
@@ -34,16 +38,30 @@
 	  :literal compile-literal
 	  :amp compile-amp
 	  :list compile-list
-	  :vector compile-vector)
+	  :vector compile-vector
+	  :describe compile-describe)
       form state))
   ([form]
      (compile-pattern form {:depth 0})))
 
 (defn- make-state
   [input]
-  {:vars {} :input [input] :istack [] :good true})
+  {:vars {} :input [input] :istack [] :good true
+   :dstack [] :pstack [[]] :form input :fstack []})
 
 (declare exe-commands)
+
+(defn- move-sym
+  [pstack sym]
+  (conj (pop pstack) (conj (peek pstack) sym)))
+
+(defn- move-forward
+  [pstack]
+  (move-sym pstack :f))
+
+(defn- move-late
+  [pstack]
+  (move-sym pstack :l))
 
 (defn- exe-store
   [cmd state]
@@ -52,7 +70,8 @@
     (if-let [[item & input] (:input state)]
       (assoc state
 	:input input
-	:vars (update-in (:vars state) [v :val] store item))
+	:vars (update-in (:vars state) [v :val] store item)
+	:pstack (move-forward (:pstack state)))
       (assoc state :good false))))
 
 (defn- exe-literal
@@ -60,7 +79,9 @@
   (let [lit (second cmd)]
     (if-let [[item & input] (:input state)]
       (if (= item lit)
-	(assoc state :input input)
+	(assoc state
+	  :input input
+	  :pstack (move-forward (:pstack state)))
 	(assoc state :good false))
       (assoc state :good false))))
 
@@ -105,7 +126,8 @@
   (if (empty? (:input state))
     (assoc state
       :input (peek (:istack state))
-      :istack (pop (:istack state)))
+      :istack (pop (:istack state))
+      :pstack (move-forward (pop (:pstack state))))
     (assoc state :good false)))
 
 (defn- exe-nest
@@ -114,7 +136,8 @@
     (if (test item)
       (assoc state
 	:input item
-	:istack (conj (:istack state) inputs))
+	:istack (conj (:istack state) inputs)
+	:pstack (conj (:pstack state) (conj (peek (:pstack state)) :i)))
       (assoc state :good false))
     (assoc state :good false)))
 
@@ -125,6 +148,20 @@
 (defn- exe-vector
   [cmd state]
   (exe-nest state vector?))
+
+(defn- exe-push-describe
+  [cmd state]
+  (assoc state
+    :dstack (conj (:dstack state) (second cmd))
+    :fstack (conj (:fstack state) (:form state))
+    :form (if (seq (:input state)) (first (:input state)) (:form state))))
+
+(defn- exe-pop-describe
+  [cmd state]
+  (assoc state
+    :dstack (pop (:dstack state))
+    :fstack (pop (:fstack state))
+    :form (peek (:fstack state))))
 
 (defn- exe-command
   [cmd state]
@@ -137,7 +174,9 @@
        :pop-vars exe-pop-vars
        :eos exe-eos
        :list exe-list
-       :vector exe-vector)
+       :vector exe-vector
+       :push-describe exe-push-describe
+       :pop-describe exe-pop-describe)
    cmd state))
 
 (defn- exe-commands
@@ -155,7 +194,10 @@
 			     :amp-depth (or (:amp-depth v) 0)
 			     :val (peek (:val v)))])]
     {:vars (if (:good state) (into {} (map fix vars)) {})
-     :good (:good state)}))
+     :good (:good state)
+     :describe (peek (:dstack state))
+     :progress (peek (:pstack state))
+     :form (:form state)}))
 
 (defn match
   [pattern form]

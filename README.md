@@ -24,7 +24,8 @@ items such as & that would otherwise have special behavior.  A list of the form
 (+& <patterns>) is equivalent to & <patterns> except that other patterns may
 follow (& would normally consume all remaining patterns in the list).  Note
 during matching only the first ampersand clause will be used; all patterns
-after it will be ignored.  
+after it will be ignored. (+describe <description> <pattern>) will describe the
+pattern using description. This is useful for providing better error messages.
 
 In the case that no rule matches the macro invocation, a bad syntax exception
 will be thrown that contains the incorrect code.

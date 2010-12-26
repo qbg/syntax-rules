@@ -8,6 +8,7 @@
       :variable #{(second form)}
       :symbol #{}
       :literal #{}
+      :describe (pattern-vars (nth form 2))
       :list (apply pattern-vars (rest form))
       :vector (apply pattern-vars (rest form))
       :amp (apply pattern-vars (rest (rest form)))))
@@ -45,7 +46,8 @@
   (cond
    (= (first form) '+literal) `(:literal ~(second form))
    (= (first form) '+&) (parse-amp form)
-    :else (cons :list (parse-seq form))))
+   (= (first form) '+describe) `(:describe ~(second form) ~(parse-pattern (nth form 2)))
+   :else (cons :list (parse-seq form))))
 
 (defn- parse-vector
   [form]
@@ -75,6 +77,7 @@
       :literal pattern
       :list `(:list ~@(convert-seq (rest pattern))) 
       :vector `(:vector ~@(convert-seq (rest pattern)))
+      :describe `(:describe ~(second pattern) ~(convert-vars (nth pattern 2) vars))
       :amp `(:amp
               ~(filter-vars (nth pattern 1))
               ~@(convert-seq (nthnext pattern 2))))))
