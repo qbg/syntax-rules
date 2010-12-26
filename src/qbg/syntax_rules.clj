@@ -10,9 +10,10 @@
     (fn [form]
       (loop [rt rule-templates]
         (if-let [[[rule template] & rt] rt]
-          (if-let [m (pm/match rule form)]
-            (tf/fill-template template m)
-            (recur rt))
+          (let [m (pm/match rule form)]
+	    (if (:good m)
+	      (tf/fill-template template (:vars m))
+	      (recur rt)))
           (throw (Exception. (format "%s: Bad syntax in %s" name form))))))))
 
 (defmacro defsyntax-rules

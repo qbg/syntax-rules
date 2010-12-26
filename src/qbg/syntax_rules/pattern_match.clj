@@ -1,84 +1,164 @@
 (ns qbg.syntax-rules.pattern-match)
 
-(defn- ms
-  [depth val]
-  {:amp-depth depth :val val})
+(declare compile-pattern)
 
-(defn- merge-symbols
-  [s1 s2]
-  (if (= (:amp-depth s1) (inc (:amp-depth s2)))
-    (assoc s1 :val (conj (:val s1) (:val s2)))
-    (throw (IllegalStateException. "Inconsistent ampersand depth"))))
+(defn- compile-variable
+  [form state]
+  `((:store ~(second form))))
 
-(defn- merge-states
-  [& states]
-  (if (every? identity states)
-    (apply merge-with merge-symbols states)
-    false))
+(defn- compile-literal
+  [form state]
+  `((:literal ~(second form))))
 
-(declare match-seq match)
+(defn- compile-amp
+  [form state]
+  (let [vars (second form)
+	state (update-in state [:depth] inc)
+	patterns (nthnext form 2)
+	pinstr (mapcat #(compile-pattern % state) patterns)]
+    `((:push-vars ~vars) (:rep ~@pinstr (:collect-vars ~vars))
+      (:pop-vars ~(:depth state) ~vars))))
 
-(defn- match-symbol
-  [pattern form]
-  (if (= (second pattern) '_)
-    {}
-    {(second pattern) (ms 0 form)}))
+(defn- compile-list
+  [form state]
+  `((:list) ~@(mapcat #(compile-pattern % state) (rest form)) (:eos)))
 
-(defn- match-literal
-  [pattern form]
-  (if (= form (second pattern))
-    {}
-    false))
+(defn- compile-vector
+  [form state]
+  `((:vector) ~@(mapcat #(compile-pattern % state) (rest form)) (:eos)))
 
-(defn- promote
+(defn- compile-pattern
+  ([form state]
+     ((condp = (first form)
+	  :variable compile-variable
+	  :literal compile-literal
+	  :amp compile-amp
+	  :list compile-list
+	  :vector compile-vector)
+      form state))
+  ([form]
+     (compile-pattern form {:depth 0})))
+
+(defn- make-state
+  [input]
+  {:vars {} :input [input] :istack [] :good true})
+
+(declare exe-commands)
+
+(defn- exe-store
+  [cmd state]
+  (let [v (second cmd)
+	store (fnil #(conj (pop %1) %2) [nil])]
+    (if-let [[item & input] (:input state)]
+      (assoc state
+	:input input
+	:vars (update-in (:vars state) [v :val] store item))
+      (assoc state :good false))))
+
+(defn- exe-literal
+  [cmd state]
+  (let [lit (second cmd)]
+    (if-let [[item & input] (:input state)]
+      (if (= item lit)
+	(assoc state :input input)
+	(assoc state :good false))
+      (assoc state :good false))))
+
+(defn- exe-push-vars
+  [cmd state]
+  (let [vs (second cmd)
+	push-var (fn [vars v]
+		   (update-in vars [v :val] #(conj (pop (or % [nil])) [] nil)))]
+    (assoc state :vars (reduce push-var (:vars state) vs))))
+
+(defn- exe-collect-vars
+  [cmd state]
+  (let [vs (second cmd)
+	merge-val (fn [v]
+		    (let [slast (nth v (- (count v) 2))
+			  last (nth v (dec (count v)))]
+		      (conj (pop (pop v)) (conj slast last) nil)))
+	collect-var (fn [vars v]
+		      (update-in vars [v :val] merge-val))]
+    (assoc state :vars (reduce collect-var (:vars state) vs))))
+
+(defn- exe-pop-vars
+  [cmd state]
+  (let [depth (second cmd)
+	vs (nth cmd 2)
+	pop-var (fn [vars v]
+		  (update-in vars [v] assoc
+			     :amp-depth (max depth (or (:amp-depth (vars v)) 0))
+			     :val (pop (:val (vars v)))))]
+    (assoc state :vars (reduce pop-var (:vars state) vs))))
+
+(defn- exe-rep
+  [cmd state]
+  (if (:good state)
+    (if (empty? (:input state))
+      state
+      (recur cmd (exe-commands (rest cmd) state)))
+    state))
+
+(defn- exe-eos
+  [cmd state]
+  (if (empty? (:input state))
+    (assoc state
+      :input (peek (:istack state))
+      :istack (pop (:istack state)))
+    (assoc state :good false)))
+
+(defn- exe-nest
+  [state test]
+  (if-let [[item & inputs] (:input state)]
+    (if (test item)
+      (assoc state
+	:input item
+	:istack (conj (:istack state) inputs))
+      (assoc state :good false))
+    (assoc state :good false)))
+
+(defn- exe-list
+  [cmd state]
+  (exe-nest state seq?))
+
+(defn- exe-vector
+  [cmd state]
+  (exe-nest state vector?))
+
+(defn- exe-command
+  [cmd state]
+  ((condp = (first cmd)
+       :store exe-store
+       :literal exe-literal
+       :push-vars exe-push-vars
+       :rep exe-rep
+       :collect-vars exe-collect-vars
+       :pop-vars exe-pop-vars
+       :eos exe-eos
+       :list exe-list
+       :vector exe-vector)
+   cmd state))
+
+(defn- exe-commands
+  [cmds state]
+  (if (:good state)
+    (if (seq cmds)
+      (recur (next cmds) (exe-command (first cmds) state))
+      state)
+    state))
+
+(defn- fixup-state
   [state]
-  (if (= state false)
-    false
-    (into {} (map (fn [[k v]]
-                    [k (assoc v
-                         :amp-depth (inc (:amp-depth v))
-                         :val [(:val v)])]) state))))
-
-(defn- match-amp
-  [pattern form]
-  (let [patterns (nthnext pattern 2)]
-    (if (zero? (rem (count form) (count patterns)))
-      (let [parts (partition (count patterns) form)
-            matches (map match-seq (repeat patterns) parts)]
-        (apply merge-states (promote (first matches)) (rest matches)))
-      false)))
-
-(defn- match-seq
-  [pattern form]
-  (loop [states [], form form, pattern pattern]
-    (if (seq pattern)
-      (if (= (first (first pattern)) :amp)
-        (recur (conj states (match-amp (first pattern) form)) nil nil)
-        (if (seq form)
-          (recur (conj states (match (first pattern) (first form)))
-            (next form) (next pattern))
-          false))
-      (if (empty? form)
-        (apply merge-states states)
-        false))))
-
-(defn- match-list
-  [pattern form]
-  (if (seq? form)
-    (match-seq (rest pattern) form)
-    false))
-
-(defn- match-vector
-  [pattern form]
-  (if (vector? form)
-    (match-seq (rest pattern) form)
-    false))
+  (let [vars (:vars state)
+	fix (fn [[k v]] [k (assoc v
+			     :amp-depth (or (:amp-depth v) 0)
+			     :val (peek (:val v)))])]
+    {:vars (if (:good state) (into {} (map fix vars)) {})
+     :good (:good state)}))
 
 (defn match
   [pattern form]
-  ((condp = (first pattern)
-    :variable match-symbol
-    :literal match-literal
-    :list match-list
-    :vector match-vector)
-    pattern form))
+  (->> (make-state form)
+       (exe-commands (compile-pattern pattern))
+       fixup-state))
