@@ -6,19 +6,19 @@ features in syntax-parse from Racket.
 
 ## Usage
 
-Macros are defined using #'qbg.syntax-rules/defsyntax-rules. A defsyntax-rules
-form is of the form (defsyntax-rules name literals rt+), where rt is a rule
-template pair (see Examples), and literals is a vector of symbols to be treated
+Macros are defined using `#'qbg.syntax-rules/defsyntax-rules`. A defsyntax-rules
+form is of the form `(defsyntax-rules name literals rt+)`, where `rt` is a rule-
+template pair (see Examples), and `literals` is a vector of symbols to be treated
 as literals in the template.
 
 Certain lists are treated specially when they appear in a pattern/template. The
-list (+literal <item>) will cause <item> to be treated as a literal during
-matching and filling in the template. The list (+& <pattern> ...) in like an
+list `(+literal <item>)` will cause `<item>` to be treated as a literal during
+matching and filling in the template. The list `(+& <pattern> ...)` in like an
 ellipsis, except there can be multiple patterns under it, where each pattern is
-repeated in sequence (see the plet example in Examples). The list (+describe
-<mesg> <pattern>) will push <mesg> on the description stack during the matching
-of <pattern>. <mesg> should be a string that describes what type of expression
-<pattern> is going to match.
+repeated in sequence (see the `plet` example in Examples). The list `(+describe
+<mesg> <pattern>)` will push `<mesg>` on the description stack during the matching
+of `<pattern>`. `<mesg>` should be a string that describes what type of expression
+`<pattern>` is going to match.
 
 When a macro defined defsyntax-rules encounters a syntax error (that is, when
 none of the rules match), all of the rules are examined to determine which one
@@ -28,7 +28,7 @@ message that was on the top of the describe stack when the matching failed.
 When the template is filled in, symbols that are not pattern variables are
 treated in one of two ways: a symbol having a top-level definition becomes
 namespace-qualified, and a symbol that does not is automatically gensym'd. All
-special forms that do not #'resolve are treated as literal symbols.
+special forms that do not `#'resolve` are treated as literal symbols.
 
 ## Examples
 

@@ -73,7 +73,7 @@
       (if (pred item)
 	(assoc state
 	  :input item
-	  :istack (conj (:istack state) (next (:input state))))
+	  :istack (conj (:istack state) (:input state)))
 	(fail-state state)))))
 
 (defn- do-push-describe
@@ -122,6 +122,34 @@
 	state)
       state)))
 
+(defn- do-push-state
+  []
+  (fn [state]
+    (let [entry {:vars (:vars state)
+		 :varm (:varm state)}]
+      (assoc state
+	:vstack (conj (:vstack state) entry)
+	:vars {}
+	:varm {}))))
+
+(defn- do-pop-state
+  [variable]
+  (fn [state]
+    (let [entry {:vars (:vars state)
+		 :varm (:varm state)}
+	  top (peek (:vstack state))
+	  vars (:vars top)
+	  varm (assoc (:varm top) variable entry)]
+      (assoc state
+	:vstack (pop (:vstack state))
+	:vars vars
+	:varm varm))))
+
+(defn- do-varclass
+  [klass & args]
+  (fn [state]
+    ((apply klass args) state)))
+
 (defn- compile-variable
   [form]
   [(do-in-progress) (do-store (second form)) (move-forward) (do-out-progress)])
@@ -135,14 +163,14 @@
   (concat
    [(do-in-progress) (do-nest seq?)]
    (mapcat compile-pattern (rest form))
-   [(do-eos) (do-out-progress)]))
+   [(do-eos) (move-forward) (do-out-progress)]))
 
 (defn- compile-vector
   [form]
   (concat
    [(do-in-progress) (do-nest vector?)]
    (mapcat compile-pattern (rest form))
-   [(do-eos) (do-out-progress)]))
+   [(do-eos) (move-forward) (do-out-progress)]))
 
 (defn- compile-describe
   [form]
@@ -158,6 +186,13 @@
 	pinstr (mapcat compile-pattern patterns)]
     [(do-push-vars vars) (do-rep (concat pinstr [(do-collect-vars vars)]))]))
 
+(defn- compile-varclass
+  [form]
+  (let [[_ variable klass & args] form]
+    [(do-in-progress) (do-push-state) (do-store variable)
+     (apply do-varclass klass args) (move-forward)
+     (do-pop-state) (do-out-progress)]))
+
 (defn- compile-pattern
   [form]
   ((condp = (first form)
@@ -172,7 +207,8 @@
 (defn- make-state
   [input]
   {:vars {} :input [input] :istack [] :good true
-   :dstack ["Bad syntax"] :progress [0]})
+   :dstack ["Bad syntax"] :progress [0]
+   :vstack [] :varm {}})
 
 (defn- exe-commands
   [cmds state]
@@ -182,11 +218,19 @@
       state)
     state))
 
+(defn- fix-vars
+  [state]
+  (let [fix (fn [[k v]] [k (update-in v [:val] peek)])
+	fixm (fn [[k v]] [k (fix-vars v)])]
+    (assoc state
+      :vars (into {} (map fix (:vars state)))
+      :varm (into {} (map fixm (:varm state))))))
+
 (defn- fixup-state
   [state]
-  (let [vars (:vars state)
-	fix (fn [[k v]] [k (update-in v [:val] peek)])]
-    {:vars (if (:good state) (into {} (map fix vars)) {})
+  (let [state (fix-vars state)]
+    {:vars (if (:good state) (:vars state) {})
+     :varm (if (:good state) (:varm state) {})
      :good (:good state)
      :describe (peek (:dstack state))
      :progress (:progress state)}))
