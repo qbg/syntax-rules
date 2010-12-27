@@ -77,7 +77,7 @@ A for-each-style `for` macro that supports multiple syntaxes can be defined as:
 Here `(for x :in [1 2 3] (println x))` and `(for [1 2 3] :as x (println x))`
 will have the same effect.
 
-The above `for` example can be simplified by the use of +or and +head patterns:
+The above `for` example can be simplified by the use of `+or` and `+head` patterns:
     (defsyntax-rules for []
       (for (+or (+head var :in coll)
       	        (+head coll :as var))
@@ -106,6 +106,17 @@ of the form `(let* [x205 (+ 2 3)] (clojure.core/* x205 x205))`.
         (defmacro name
 	  [& forms]
 	  (ar &form))))
+
+`+or` and `+head` patterns are a powerful tool when combined with the
+ellipsis. With the combination of these three patterns, keyword arguments can be
+supported to some degree. Even more, the keywords do not need to have a uniform
+structure, that is they can take a varying number of arguments:
+    (defsyntax-rules foo []
+      (foo (+or (+head :a a) (+head :b b c)) ...)
+      '[[a ...] [[b c] ...]])
+    
+    (foo :a 1 :b 2 3 :a 4 :a 5 :b 6 7 :b 8 9 :a 10)
+    ;=> [[1 4 5 10] [[2 3] [6 7] [8 9]]]
 
 ## Limitations
 
