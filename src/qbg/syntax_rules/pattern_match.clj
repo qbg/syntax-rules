@@ -5,6 +5,8 @@
 
 (declare exe-commands compile-pattern fixup-state)
 
+(def var-marker (Object.))
+
 (defn- current-item
   [state]
   (first (:input state)))
@@ -106,21 +108,33 @@
 		       (assoc vars v
 			      {:amp-depth (max (:amp-depth vm)
 					       (inc (count (:val vm))))
-			       :val (conj (:val vm) [])})))]
+			       :val (conj (:val vm) [] var-marker)})))]
       (assoc state :vars (reduce push-var vars vs)))))
+
+(defn- pack-var
+  [v]
+  (if (= (peek v) var-marker)
+    v
+    (let [item (peek v)
+	  v (pop (pop v))
+	  coll (peek v)
+	  v (pop v)]
+      (conj v (conj coll item) var-marker))))
 
 (defn- do-collect-vars
   [vs]
   (fn [state]
     (let [vars (:vars state)
-	  pack (fn [v]
-		 (let [item (peek v)
-		       v (pop v)
-		       coll (peek v)
-		       v (pop v)]
-		   (conj v (conj coll item))))
-	  collect-var (fn [vars v] (update-in vars [v :val] pack))]
+	  collect-var (fn [vars v] (update-in vars [v :val] pack-var))]
       (assoc state :vars (reduce collect-var vars vs)))))
+
+(defn- do-clean-vars
+  [vs]
+  (fn [state]
+    (let [vars (:vars state)
+	  clean-coll (fn [v] (if (= (peek v) var-marker) (pop v) v))
+	  clean-var (fn [vars v] (update-in vars [v :val] clean-coll))]
+      (assoc state :vars (reduce clean-var vars vs)))))
 
 (defn- do-rep
   [cmds]
@@ -267,7 +281,7 @@
   (let [vars (second form)
 	patterns (nthnext form 2)
 	pinstr (mapcat compile-pattern patterns)]
-    [(do-push-vars vars) (do-rep (concat pinstr [(do-collect-vars vars)]))]))
+    [(do-push-vars vars) (do-rep (concat pinstr [(do-collect-vars vars)])) (do-clean-vars vars)]))
 
 (defn- compile-head
   [form]
@@ -328,9 +342,15 @@
       state)
     state))
 
+(defn- last-non-marker
+  [v]
+  (if (= (peek v) var-marker)
+    (recur (pop v))
+    (peek v)))
+
 (defn- fix-vars
   [state]
-  (let [fix (fn [[k v]] [k (update-in v [:val] peek)])
+  (let [fix (fn [[k v]] [k (update-in v [:val] last-non-marker)])
 	fixm (fn [[k v]] [k (fix-vars v)])]
     (assoc state
       :vars (into {} (map fix (:vars state)))
@@ -350,3 +370,15 @@
   (->> (make-state form)
        (exe-commands (compile-pattern pattern))
        fixup-state))
+
+(defn- sc-split
+  [body]
+  (->> body
+       (partition-by seq?)
+       (partition-all 2)
+       (map #(apply concat %))))
+
+;(defn make-syntax-class
+;  [vars values description body]
+;  (let [parts (sc-split body)]
+;    nil))
