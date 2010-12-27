@@ -7,7 +7,6 @@
      (condp = (first form)
 	 :variable #{(second form)}
 	 :varclass #{(second form)}
-	 :symbol #{}
 	 :literal #{}
 	 :describe (pattern-vars (nth form 2))
 	 :head (apply pattern-vars (rest form))
@@ -22,101 +21,75 @@
 (declare parse-pattern parse-seq)
 
 (defn- parse-symbol
-  [form]
-  (let [parts (.split (str form) "\\.")]
-    `(:variable ~@(map symbol parts))))
+  [form literals]
+  (if (contains? literals form)
+    `(:literal ~form)
+    (let [parts (.split (str form) "\\.")]
+      `(:variable ~@(map symbol parts)))))
 
 (defn- parse-varclass
-  [form]
+  [form literals]
   (let [[_ variable class & args] form]
     `(:varclass ~variable ~(resolve class) ~@args)))
 
 (defn- parse-literal
-  [form]
+  [form literals]
   `(:literal ~form))
 
 (defn- parse-amp
-  [form]
+  [form literals]
   (let [templates (rest form)
-        body (parse-seq templates)
+        body (parse-seq templates literals)
         vars (apply pattern-vars body)]
     `(:amp ~vars ~@body)))
 
 (defn- parse-ellipsis
-  [pattern]
-  (let [pat (parse-pattern pattern)
+  [pattern literals]
+  (let [pat (parse-pattern pattern literals)
 	vars (pattern-vars pat)]
     `(:amp ~vars ~pat)))
 
 (defn- parse-seq
-  [form]
+  [form literals]
   (loop [res [], form (seq form)]
     (if (seq form)
       (if (= (second form) '...)
-        (recur (conj res (parse-ellipsis (first form))) (nthnext form 2))
-        (recur (conj res (parse-pattern (first form))) (next form)))
+        (recur (conj res (parse-ellipsis (first form) literals)) (nthnext form 2))
+        (recur (conj res (parse-pattern (first form) literals)) (next form)))
       res)))
 
 (defn- parse-describe
-  [form]
+  [form literals]
   (let [[_ mesg & pattern] form]
-    `(:describe ~mesg ~(first (parse-seq pattern)))))
+    `(:describe ~mesg ~(first (parse-seq pattern literals)))))
 
 (defn- parse-list
-  [form]
+  [form literals]
   (cond
    (= (first form) '+literal) `(:literal ~(second form))
-   (= (first form) '+&) (parse-amp form)
-   (= (first form) '+describe) (parse-describe form)
-   (= (first form) '+var) (parse-varclass form)
-   (= (first form) '+head) `(:head ~@(parse-seq (rest form)))
-   (= (first form) '+and) `(:and ~@(parse-seq (rest form)))
-   (= (first form) '+or) `(:or ~@(parse-seq (rest form)))
-   :else (cons :list (parse-seq form))))
+   (= (first form) '+&) (parse-amp form literals)
+   (= (first form) '+describe) (parse-describe form literals)
+   (= (first form) '+var) (parse-varclass form literals)
+   (= (first form) '+head) `(:head ~@(parse-seq (rest form) literals))
+   (= (first form) '+and) `(:and ~@(parse-seq (rest form) literals))
+   (= (first form) '+or) `(:or ~@(parse-seq (rest form) literals))
+   :else (cons :list (parse-seq form literals))))
 
 (defn- parse-vector
-  [form]
-  (cons :vector (parse-seq form)))
+  [form literals]
+  (cons :vector (parse-seq form literals)))
 
 (defn parse-pattern
-  [pattern]
+  [pattern literals]
   (cond
-    (symbol? pattern) (parse-symbol pattern)
-    (seq? pattern) (parse-list pattern)
-    (vector? pattern) (parse-vector pattern)
-    :else (parse-literal pattern)))
-
-(defn- convert-vars
-  [pattern vars literals]
-  (letfn [(convert-seq
-            [coll]
-            (map #(convert-vars % vars literals) coll))
-          (filter-vars
-            [v]
-            (set (filter vars v)))]
-    (condp = (first pattern)
-	:variable (cond
-		   (vars (second pattern)) pattern
-		   (literals (second pattern)) `(:literal ~(second pattern))
-		   :else `(:symbol ~(second pattern)))
-	:varclass pattern
-	:symbol pattern
-	:literal pattern
-	:list `(:list ~@(convert-seq (rest pattern)))
-	:head `(:head ~@(convert-seq (rest pattern)))
-	:and `(:and ~@(convert-seq (rest pattern)))
-	:or `(:or ~@(convert-seq (rest pattern)))
-	:vector `(:vector ~@(convert-seq (rest pattern)))
-	:describe `(:describe ~(second pattern)
-			      ~(convert-vars (nth pattern 2) vars))
-	:amp `(:amp
-	       ~(filter-vars (nth pattern 1))
-	       ~@(convert-seq (nthnext pattern 2))))))
+    (symbol? pattern) (parse-symbol pattern literals)
+    (seq? pattern) (parse-list pattern literals)
+    (vector? pattern) (parse-vector pattern literals)
+    :else (parse-literal pattern literals)))
 
 (defn build-rule-template
   [rule template literals]
-  (let [rule (parse-pattern rule)
-        template (parse-pattern template)
-        vars (pattern-vars rule)
-        template (convert-vars template vars (set literals))]
+  (let [literals (set literals)
+	rule (parse-pattern rule literals)
+        template (parse-pattern template literals)]
     [rule template]))

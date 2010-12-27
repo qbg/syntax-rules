@@ -6,22 +6,30 @@
   [form state mappings]
   (second form))
 
-(defn- fill-variable
-  [form state mappings]
-  (if (> (count form) 2)
-    (recur (next form) (get (:varm state) (second form)) mappings)
-    (let [v (get (:vars state) (second form))]
-      (if (= (:amp-depth v) 0)
-	(:val v)
-	(throw (IllegalStateException. "Inconsistent ampersand depth"))))))
+(defn- fill-simple-variable
+  [variable state]
+  (let [v (get (:vars state) variable)]
+    (if (= (:amp-depth v) 0)
+      (:val v)
+      (throw (IllegalStateException. "Inconsistent ampersand depth")))))
 
 (defn- fill-symbol
+  [sym mappings]
+  (if (contains? mappings sym)
+    (get mappings sym)
+    ;; Hack
+    (symbol (subs (str (resolve sym)) 2))))
+
+(defn- fill-variable
   [form state mappings]
-  (let [sym (second form)]
-    (if (contains? mappings sym)
-      (get mappings sym)
-      ; Hack
-      (symbol (subs (str (resolve sym)) 2)))))
+  (cond
+   (> (count form) 2)
+   (recur (next form) (get (:varm state) (second form)) mappings)
+
+   (not (contains? (:vars state) (second form)))
+   (fill-symbol (second form) mappings)
+   
+   :else (fill-simple-variable (second form) state)))
 
 (defn- fill-seq
   [form state mappings]
@@ -90,7 +98,6 @@
   [form state mappings]
   ((condp = (first form)
     :variable fill-variable
-    :symbol fill-symbol
     :list fill-list
     :vector fill-vector
     :amp fill-amp
@@ -98,18 +105,20 @@
     form state mappings))
 
 (defn- find-symbols
-  ([]
+  ([state]
     #{})
-  ([form]
+  ([state form]
     (condp = (first form)
-      :variable #{}
-      :symbol #{(second form)}
-      :list (apply find-symbols (rest form))
-      :vector (apply find-symbols (rest form))
-      :amp (apply find-symbols (rest (rest form)))
-      :literal #{}))
-  ([form & forms]
-    (reduce into (find-symbols form) (map find-symbols forms))))
+	:variable (if (contains? (:vars state) (second form))
+		    #{(second form)}
+		    #{})
+	:list (apply find-symbols (rest form))
+	:vector (apply find-symbols (rest form))
+	:amp (apply find-symbols (rest (rest form)))
+	:literal #{}))
+  ([state form & forms]
+     (reduce into (find-symbols state form)
+	     (map #(find-symbols state %) forms))))
 
 (defn- make-mappings
   [syms]
@@ -121,4 +130,4 @@
 
 (defn fill-template
   [form state]
-  (fill-form form state (make-mappings (find-symbols form))))
+  (fill-form form state (make-mappings (find-symbols state form))))
