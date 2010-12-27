@@ -1,4 +1,5 @@
-(ns qbg.syntax-rules.pattern-match)
+(ns qbg.syntax-rules.pattern-match
+  (:require [qbg.syntax-rules.template-fill :as tf]))
 
 (declare exe-commands compile-pattern)
 
@@ -150,12 +151,14 @@
   (fn [state]
     (let [intro (butlast cmds)
 	  final (last cmds)
-	  input (:input state)]
+	  input (:input state)
+	  progress (:progress state)]
       (loop [state state, intro intro]
 	(if (seq intro)
 	  (if (:good state)
 	    (recur (assoc (exe-commands (first intro) state)
-		     :input input)
+		     :input input
+		     :progress progress)
 		   (next intro))
 	    state)
 	  (if (:good state)
@@ -177,6 +180,16 @@
   [klass & args]
   (fn [state]
     ((apply klass args) state)))
+
+(defn- do-pattern
+  [cmds template]
+  (fn [state]
+    (let [input (:input state)
+	  progress (:progress state)
+	  ft (tf/fill-template template state)
+	  st (assoc state :input ft)
+	  st (exe-commands cmds st)]
+      (assoc st :progress progress :input input))))
 
 (defn- compile-variable
   [form]
@@ -233,6 +246,10 @@
   [form]
   [(do-or (map compile-pattern (rest form)))])
 
+(defn- compile-pattern-form
+  [form]
+  [(do-pattern (compile-pattern (second form)) (nth form 2))])
+
 (defn- compile-pattern
   [form]
   ((condp = (first form)
@@ -240,6 +257,7 @@
        :literal compile-literal
        :amp compile-amp
        :head compile-head
+       :pattern compile-pattern-form
        :list compile-list
        :vector compile-vector
        :describe compile-describe

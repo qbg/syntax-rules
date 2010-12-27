@@ -30,6 +30,10 @@ patterns.
 The list `(+and <pattern> ...)` and `(+or <pattern> ...)` will match if all/at
 least one of `<pattern>` matches respectively.
 
+The list `(+pattern <pattern> <template>)` will match `<pattern>` against the
+result of filling in `<template>` with the current progress of the matching.
+This operation consumes no input.
+
 When a macro defined defsyntax-rules encounters a syntax error (that is, when
 none of the rules match), all of the rules are examined to determine which one
 has matched the most of the form.  An error message is then generated from the

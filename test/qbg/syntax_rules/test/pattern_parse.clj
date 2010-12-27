@@ -34,7 +34,8 @@
 	 '(+var a foo) `(:varclass ~'a ~#'qbg.syntax-rules.test.pattern-parse/foo)
 	 '(+head a b) '(:head (:variable a) (:variable b))
 	 '(+or a b) '(:or (:variable a) (:variable b))
-	 '(+and a b) '(:and (:variable a) (:variable b)))))
+	 '(+and a b) '(:and (:variable a) (:variable b))
+	 '(+pattern a 5) '(:pattern (:variable a) (:literal 5)))))
 
 (deftest test-parse-vector
   (are [form res] (= (#'pp/parse-vector form #{}) res)

@@ -8,6 +8,7 @@
 	 :variable #{(second form)}
 	 :varclass #{(second form)}
 	 :literal #{}
+	 :pattern (pattern-vars (second form))
 	 :describe (pattern-vars (nth form 2))
 	 :head (apply pattern-vars (rest form))
 	 :and (apply pattern-vars (rest form))
@@ -63,6 +64,12 @@
   (let [[_ mesg & pattern] form]
     `(:describe ~mesg ~(first (parse-seq pattern literals)))))
 
+(defn- parse-pattern-form
+  [form literals]
+  (let [[_ & pt] form
+	[pattern template] (parse-seq pt literals)]
+    `(:pattern ~pattern ~template)))
+
 (defn- parse-list
   [form literals]
   (cond
@@ -73,6 +80,7 @@
    (= (first form) '+head) `(:head ~@(parse-seq (rest form) literals))
    (= (first form) '+and) `(:and ~@(parse-seq (rest form) literals))
    (= (first form) '+or) `(:or ~@(parse-seq (rest form) literals))
+   (= (first form) '+pattern) (parse-pattern-form form literals)
    :else (cons :list (parse-seq form literals))))
 
 (defn- parse-vector
