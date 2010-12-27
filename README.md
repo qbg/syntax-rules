@@ -34,6 +34,10 @@ The list `(+pattern <pattern> <template>)` will match `<pattern>` against the
 result of filling in `<template>` with the current progress of the matching.
 This operation consumes no input.
 
+The list `(+guard <mesg> <code>)` will execute the form `<code>`. If `<code>`
+returns a true value, `<mesg>` will be reported as the type of error with the
+result being the form that caused the error. This operation consumes no input.
+
 When a macro defined defsyntax-rules encounters a syntax error (that is, when
 none of the rules match), all of the rules are examined to determine which one
 has matched the most of the form.  An error message is then generated from the
@@ -43,6 +47,16 @@ When the template is filled in, symbols that are not pattern variables are
 treated in one of two ways: a symbol having a top-level definition becomes
 namespace-qualified, and a symbol that does not is automatically gensym'd. All
 special forms that do not `#'resolve` are treated as literal symbols.
+
+## Additional functions/macros
+
+`#'qbg.syntax-rules/syntax` takes some template (and optionally a vector of
+literals) and fills in the template using the result of the current match. This
+is the mechanism to gain access to the values of pattern variables in a guard.
+
+`#'qbg.syntax-rules/absent?` is a function that takes the name of a pattern
+variable (a symbol) and returns true if the pattern variable has not been bound
+in the current match.
 
 ## Examples
 

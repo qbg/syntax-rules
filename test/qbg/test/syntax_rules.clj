@@ -20,4 +20,7 @@
        [2] [1] true
        [0 1] [1] false
        [1] [0 1] true
-       [0 1 0] [0 2] false))
+       [0 1 0] [0 2] false
+       [0 :late] [0] true
+       [0 :late] [1] false
+       [0 :late] [0 5] true))

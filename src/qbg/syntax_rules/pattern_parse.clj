@@ -10,6 +10,7 @@
 	 :literal #{}
 	 :pattern (pattern-vars (second form))
 	 :describe (pattern-vars (nth form 2))
+	 :guard #{}
 	 :head (apply pattern-vars (rest form))
 	 :and (apply pattern-vars (rest form))
 	 :or (apply pattern-vars (rest form))
@@ -70,6 +71,11 @@
 	[pattern template] (parse-seq pt literals)]
     `(:pattern ~pattern ~template)))
 
+(defn- parse-guard
+  [form]
+  (let [[_ mesg code] form]
+    `(:guard ~mesg ~(ns-name *ns*) ~code)))
+
 (defn- parse-list
   [form literals]
   (cond
@@ -81,6 +87,7 @@
    (= (first form) '+and) `(:and ~@(parse-seq (rest form) literals))
    (= (first form) '+or) `(:or ~@(parse-seq (rest form) literals))
    (= (first form) '+pattern) (parse-pattern-form form literals)
+   (= (first form) '+guard) (parse-guard form)
    :else (cons :list (parse-seq form literals))))
 
 (defn- parse-vector

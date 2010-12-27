@@ -1,7 +1,9 @@
 (ns qbg.syntax-rules.pattern-match
   (:require [qbg.syntax-rules.template-fill :as tf]))
 
-(declare exe-commands compile-pattern)
+(def *current-match*)
+
+(declare exe-commands compile-pattern fixup-state)
 
 (defn- current-item
   [state]
@@ -37,6 +39,10 @@
   [progress]
   (let [n (peek progress)]
     (conj (pop progress) (inc n))))
+
+(defn- late-progress
+  [progress]
+  (conj progress :late))
 
 (defn- do-in-progress
   []
@@ -80,8 +86,10 @@
 (defn- do-push-describe
   [mesg]
   (fn [state]
-    (assoc state
-      :dstack (conj (:dstack state) mesg))))
+    (let [mesg (format "expected %s" mesg)
+	  form (current-item state)]
+      (assoc state
+	:dstack (conj (:dstack state) [mesg form])))))
 
 (defn- do-pop-describe
   []
@@ -191,6 +199,40 @@
 	  st (exe-commands cmds st)]
       (assoc st :progress progress :input input))))
 
+(defn- fail-guard
+  [state mesg res]
+  (let [state (assoc state
+		:dstack (conj (:dstack state) [mesg res])
+		:progress (late-progress (:progress state)))]
+    (fail-state state)))
+
+(defn- do-guard
+  [mesg ns pred]
+  (fn [state]
+    (binding [*current-match* (fixup-state state)
+	      *ns* (find-ns ns)]
+      (let [params (:params state)
+	    vars (keys params)
+	    rhss (vals params)
+	    res (eval `(let [~@(interleave vars rhss)] ~pred))]
+	(if res
+	  (fail-guard state mesg res)
+	  state)))))
+
+(defn- do-push-params
+  [params]
+  (fn [state]
+    (assoc state
+      :params params
+      :param-stack (conj (:param-stack state) (:params state)))))
+
+(defn- do-pop-params
+  []
+  (fn [state]
+    (assoc state
+      :params (peek (:param-stack state))
+      :param-stack (pop (:param-stack state)))))
+
 (defn- compile-variable
   [form]
   [(do-in-progress) (do-store (second form)) (move-forward) (do-out-progress)])
@@ -250,6 +292,11 @@
   [form]
   [(do-pattern (compile-pattern (second form)) (nth form 2))])
 
+(defn- compile-guard
+  [form]
+  (let [[_ mesg ns code] form]
+    [(do-guard mesg ns code)]))
+
 (defn- compile-pattern
   [form]
   ((condp = (first form)
@@ -262,14 +309,16 @@
        :vector compile-vector
        :describe compile-describe
        :and compile-and
-       :or compile-or)
+       :or compile-or
+       :guard compile-guard)
    form))
 
 (defn- make-state
   [input]
   {:vars {} :input [input] :istack [] :good true
    :dstack ["Bad syntax"] :progress [0]
-   :vstack [] :varm {}})
+   :vstack [] :varm {}
+   :params {} :param-stack []})
 
 (defn- exe-commands
   [cmds state]
