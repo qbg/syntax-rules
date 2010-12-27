@@ -2,24 +2,31 @@
 
 (defn- pattern-vars
   ([]
-    #{})
+     #{})
   ([form]
-    (condp = (first form)
-      :variable #{(second form)}
-      :symbol #{}
-      :literal #{}
-      :describe (pattern-vars (nth form 2))
-      :list (apply pattern-vars (rest form))
-      :vector (apply pattern-vars (rest form))
-      :amp (apply pattern-vars (rest (rest form)))))
+     (condp = (first form)
+	 :variable #{(second form)}
+	 :varclass #{(second form)}
+	 :symbol #{}
+	 :literal #{}
+	 :describe (pattern-vars (nth form 2))
+	 :list (apply pattern-vars (rest form))
+	 :vector (apply pattern-vars (rest form))
+	 :amp (apply pattern-vars (rest (rest form)))))
   ([form & forms]
-    (reduce into (pattern-vars form) (map pattern-vars forms))))
+     (reduce into (pattern-vars form) (map pattern-vars forms))))
 
 (declare parse-pattern parse-seq)
 
 (defn- parse-symbol
   [form]
-  `(:variable ~form))
+  (let [parts (.split (str form) "\\.")]
+    `(:variable ~@(map symbol parts))))
+
+(defn- parse-varclass
+  [form]
+  (let [[_ variable class & args] form]
+    `(:varclass ~variable ~(resolve class) ~@args)))
 
 (defn- parse-literal
   [form]
@@ -58,6 +65,7 @@
    (= (first form) '+literal) `(:literal ~(second form))
    (= (first form) '+&) (parse-amp form)
    (= (first form) '+describe) (parse-describe form)
+   (= (first form) '+var) (parse-varclass form)
    :else (cons :list (parse-seq form))))
 
 (defn- parse-vector
@@ -85,6 +93,7 @@
 		   (vars (second pattern)) pattern
 		   (literals (second pattern)) `(:literal ~(second pattern))
 		   :else `(:symbol ~(second pattern)))
+	:varclass pattern
 	:symbol pattern
 	:literal pattern
 	:list `(:list ~@(convert-seq (rest pattern))) 

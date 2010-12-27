@@ -36,7 +36,7 @@
     (fn [form]
       (let [results (map (partial perform-match form) rule-templates)]
 	(if-let [m (first (filter :good results))]
-	  (tf/fill-template (:template m) (:vars m))
+	  (tf/fill-template (:template m) m)
 	  (throw-match-error name results))))))
 
 (defmacro defsyntax-rules

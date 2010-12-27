@@ -8,10 +8,12 @@
 
 (defn- fill-variable
   [form state mappings]
-  (let [v (get state (second form))]
-    (if (= (:amp-depth v) 0)
-      (:val v)
-      (throw (IllegalStateException. "Inconsistent ampersand depth")))))
+  (if (> (count form) 2)
+    (recur (next form) (get (:varm state) (second form)) mappings)
+    (let [v (get (:vars state) (second form))]
+      (if (= (:amp-depth v) 0)
+	(:val v)
+	(throw (IllegalStateException. "Inconsistent ampersand depth"))))))
 
 (defn- fill-symbol
   [form state mappings]
@@ -40,32 +42,36 @@
 
 (defn- get-var-length
   [vars state]
-  (count (:val (get state (first vars)))))
+  (count (:val (get (:vars state) (first vars)))))
 
 (defn- assert-vars
   [vars state]
-  (let [lengths (map #(count (:val (get state %))) vars)]
+  (let [lengths (map #(count (:val (get (:vars state) %))) vars)]
     (if (apply = lengths)
       true
       (throw (IllegalStateException. "Variables under ampersand do not have equal lengths")))))
 
 (defn- demote-vars
   [vars state]
-  (reduce (fn [state v]
-            (let [sym (get state v)
-                  sym (assoc sym
-                        :amp-depth (dec (:amp-depth sym))
-                        :val (first (:val sym)))]
-              (assoc state v sym)))
-    state vars))
+  (let [vstate (:vars state)
+	vstate (reduce (fn [state v]
+			 (let [sym (get state v)
+			       sym (assoc sym
+				     :amp-depth (dec (:amp-depth sym))
+				     :val (first (:val sym)))]
+			   (assoc state v sym)))
+		       vstate vars)]
+    (assoc state :vars vstate)))
 
 (defn- drop-vars
   [vars state]
-  (reduce (fn [state v]
-            (let [sym (get state v)
-                  sym (assoc sym :val (rest (:val sym)))]
-              (assoc state v sym)))
-    state vars))
+  (let [vstate (:vars state)
+	vstate (reduce (fn [state v]
+			 (let [sym (get state v)
+			       sym (assoc sym :val (rest (:val sym)))]
+			   (assoc state v sym)))
+		       vstate vars)]
+    (assoc state :vars vstate)))
 
 (defn- fill-amp
   [form state mappings]
