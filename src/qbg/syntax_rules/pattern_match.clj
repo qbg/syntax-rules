@@ -145,6 +145,34 @@
 	:vars vars
 	:varm varm))))
 
+(defn- do-and
+  [cmds]
+  (fn [state]
+    (let [intro (butlast cmds)
+	  final (last cmds)
+	  input (:input state)]
+      (loop [state state, intro intro]
+	(if (seq intro)
+	  (if (:good state)
+	    (recur (assoc (exe-commands (first intro) state)
+		     :input input)
+		   (next intro))
+	    state)
+	  (if (:good state)
+	    (exe-commands final state)
+	    state))))))
+
+(defn- do-or
+  [cmds]
+  (fn [state]
+    (loop [cmds cmds]
+      (if (seq cmds)
+	(let [st (exe-commands (first cmds) state)]
+	  (if (:good st)
+	    st
+	    (recur (next cmds))))
+	(fail-state state)))))
+
 (defn- do-varclass
   [klass & args]
   (fn [state]
@@ -186,6 +214,10 @@
 	pinstr (mapcat compile-pattern patterns)]
     [(do-push-vars vars) (do-rep (concat pinstr [(do-collect-vars vars)]))]))
 
+(defn- compile-head
+  [form]
+  (mapcat compile-pattern (rest form)))
+
 (defn- compile-varclass
   [form]
   (let [[_ variable klass & args] form]
@@ -193,15 +225,26 @@
      (apply do-varclass klass args) (move-forward)
      (do-pop-state) (do-out-progress)]))
 
+(defn- compile-and
+  [form]
+  [(do-and (map compile-pattern (rest form)))])
+
+(defn- compile-or
+  [form]
+  [(do-or (map compile-pattern (rest form)))])
+
 (defn- compile-pattern
   [form]
   ((condp = (first form)
        :variable compile-variable
        :literal compile-literal
        :amp compile-amp
+       :head compile-head
        :list compile-list
        :vector compile-vector
-       :describe compile-describe)
+       :describe compile-describe
+       :and compile-and
+       :or compile-or)
    form))
 
 (defn- make-state

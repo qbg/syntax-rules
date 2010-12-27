@@ -13,12 +13,22 @@ as literals in the template.
 
 Certain lists are treated specially when they appear in a pattern/template. The
 list `(+literal <item>)` will cause `<item>` to be treated as a literal during
-matching and filling in the template. The list `(+& <pattern> ...)` in like an
-ellipsis, except there can be multiple patterns under it, where each pattern is
-repeated in sequence (see the `plet` example in Examples). The list `(+describe
-<mesg> <pattern>)` will push `<mesg>` on the description stack during the matching
-of `<pattern>`. `<mesg>` should be a string that describes what type of expression
-`<pattern>` is going to match.
+matching and filling in the template.
+
+The list `(+& <pattern> ...)` in like an ellipsis, except there can be multiple
+patterns under it, where each pattern is repeated in sequence (see the `plet`
+example in Examples).
+
+The list `(+describe <mesg> <pattern>)` will push `<mesg>` on the description
+stack during the matching of `<pattern>`. `<mesg>` should be a string that
+describes what type of expression `<pattern>` is going to match.
+
+The list `(+head <pattern> ...)` will match each `<pattern>` in turn in the
+current context. That is, `(1 (+head 2 3) 4)` and `(1 2 3 4)` are equivalent
+patterns.
+
+The list `(+and <pattern> ...)` and `(+or <pattern> ...)` will match if all/at
+least one of `<pattern>` matches respectively.
 
 When a macro defined defsyntax-rules encounters a syntax error (that is, when
 none of the rules match), all of the rules are examined to determine which one

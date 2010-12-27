@@ -21,4 +21,5 @@
        (:vector (:variable a) (:variable b)) [1 2] {:vars {'a (ms 0 1) 'b (ms 0 2)} :good true :describe "Bad syntax"}
        (:vector (:variable a) (:variable b)) (1 2) {:vars {} :good false :describe "Bad syntax"}
        (:list (:amp #{a b} (:variable a) (:variable b))) (1 2 3 4) {:vars {'a (ms 1 [1 3]) 'b (ms 1 [2 4])} :good true :describe "Bad syntax"}
-       (:list (:amp #{a b} (:variable a) (:list (:amp #{b} (:variable b))))) (1 (2) 3 (4 5)) {:vars {'a (ms 1 [1 3]) 'b (ms 2 [[2] [4 5]])} :good true :describe "Bad syntax"}))
+       (:list (:amp #{a b} (:variable a) (:list (:amp #{b} (:variable b))))) (1 (2) 3 (4 5)) {:vars {'a (ms 1 [1 3]) 'b (ms 2 [[2] [4 5]])} :good true :describe "Bad syntax"}
+       (:and (:variable a) (:variable b)) 5 {:vars {'a (ms 0 5) 'b (ms 0 5)} :good true :describe "Bad syntax"}))

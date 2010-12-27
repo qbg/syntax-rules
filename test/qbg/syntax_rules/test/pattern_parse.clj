@@ -31,7 +31,10 @@
 	 '(+describe "Foobar" 5) '(:describe "Foobar" (:literal 5))
 	 '(+describe "Foobar" a ...) '(:describe "Foobar" (:amp #{a} (:variable a)))
 	 '(+& a) '(:amp #{a} (:variable a))
-	 '(+var a foo) `(:varclass ~'a ~#'qbg.syntax-rules.test.pattern-parse/foo))))
+	 '(+var a foo) `(:varclass ~'a ~#'qbg.syntax-rules.test.pattern-parse/foo)
+	 '(+head a b) '(:head (:variable a) (:variable b))
+	 '(+or a b) '(:or (:variable a) (:variable b))
+	 '(+and a b) '(:and (:variable a) (:variable b)))))
 
 (deftest test-parse-vector
   (are [form res] (= (#'pp/parse-vector form) res)

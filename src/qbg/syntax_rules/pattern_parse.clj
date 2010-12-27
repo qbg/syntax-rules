@@ -10,6 +10,9 @@
 	 :symbol #{}
 	 :literal #{}
 	 :describe (pattern-vars (nth form 2))
+	 :head (apply pattern-vars (rest form))
+	 :and (apply pattern-vars (rest form))
+	 :or (apply pattern-vars (rest form))
 	 :list (apply pattern-vars (rest form))
 	 :vector (apply pattern-vars (rest form))
 	 :amp (apply pattern-vars (rest (rest form)))))
@@ -58,7 +61,7 @@
   [form]
   (let [[_ mesg & pattern] form]
     `(:describe ~mesg ~(first (parse-seq pattern)))))
-  
+
 (defn- parse-list
   [form]
   (cond
@@ -66,6 +69,9 @@
    (= (first form) '+&) (parse-amp form)
    (= (first form) '+describe) (parse-describe form)
    (= (first form) '+var) (parse-varclass form)
+   (= (first form) '+head) `(:head ~@(parse-seq (rest form)))
+   (= (first form) '+and) `(:and ~@(parse-seq (rest form)))
+   (= (first form) '+or) `(:or ~@(parse-seq (rest form)))
    :else (cons :list (parse-seq form))))
 
 (defn- parse-vector
@@ -96,7 +102,10 @@
 	:varclass pattern
 	:symbol pattern
 	:literal pattern
-	:list `(:list ~@(convert-seq (rest pattern))) 
+	:list `(:list ~@(convert-seq (rest pattern)))
+	:head `(:head ~@(convert-seq (rest pattern)))
+	:and `(:and ~@(convert-seq (rest pattern)))
+	:or `(:or ~@(convert-seq (rest pattern)))
 	:vector `(:vector ~@(convert-seq (rest pattern)))
 	:describe `(:describe ~(second pattern)
 			      ~(convert-vars (nth pattern 2) vars))
