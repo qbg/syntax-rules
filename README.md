@@ -59,6 +59,13 @@ A for-each-style `for` macro that supports multiple syntaxes can be defined as:
 Here `(for x :in [1 2 3] (println x))` and `(for [1 2 3] :as x (println x))`
 will have the same effect.
 
+The above `for` example can be simplified by the use of +or and +head patterns:
+    (defsyntax-rules for []
+      (for (+or (+head var :in coll)
+      	        (+head coll :as var))
+	   body ...)
+      (dorun (map (fn [var] body ...) coll)))
+
 A CL/Scheme-style `let` with the flat binding structure of Clojure's `let` can
 be defined as:
     (defsyntax-rules plet []
