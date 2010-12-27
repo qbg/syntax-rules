@@ -15,12 +15,12 @@
    :else false))
 
 (defn- throw-match-error
-  [name results]
+  [name results line file]
   (let [res (first (sort-by :progress (comparator order-progress) results))
 	mesg (if-let [d (:describe res)]
 	       (if (vector? d)
-		 (apply format "%s: %s" d)
-		 (format "Expected %s" d)))]
+		 (apply format "%s: %s (%s:%d)" d file line)
+		 (format "Expected %s (%s:%d)" d file line)))]
     (throw (Exception. (format "%s: %s" name mesg)))))
 
 (defn- perform-match
@@ -32,12 +32,14 @@
 (defn make-apply-rules 
   [name literals rules templates]
   (let [rule-templates (map #(pp/build-rule-template %1 %2 literals)
-			    rules templates)]
+			    rules templates)
+	file *file*]
     (fn [form]
-      (let [results (map (partial perform-match form) rule-templates)]
+      (let [results (map (partial perform-match form) rule-templates)
+	    line (:line (meta form))]
 	(if-let [m (first (filter :good results))]
 	  (tf/fill-template (:template m) m)
-	  (throw-match-error name results))))))
+	  (throw-match-error name results line file))))))
 
 (defmacro defsyntax-rules
   "Define a macro that uses the rule-template pairs to expand all invokations"

@@ -99,8 +99,6 @@ There is currently no way to give a macro a docstring.
 
 There is currently no way to give a meaningful argument list to a macro.
 
-The syntax error messages do not indicate where the macro was used.
-
 ## License
 
 Copyright (C) 2010 Brian Goslinga
