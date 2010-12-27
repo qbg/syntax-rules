@@ -3,15 +3,6 @@
     clojure.test
     [qbg.syntax-rules.pattern-match :as pm :reload-all true]))
 
-(deftest test-compile-pattern
-  (are [form instr] (= (#'pm/compile-pattern 'form) 'instr)
-       (:variable foo) ((:store foo))
-       (:literal 5) ((:literal 5))
-       (:amp #{a b} (:variable a) (:variable b)) ((:push-vars #{a b}) (:rep (:store a) (:store b) (:collect-vars #{a b})) (:pop-vars 1 #{a b}))
-       (:list (:variable a) (:literal 5)) ((:list) (:store a) (:literal 5) (:eos))
-       (:vector (:variable a) (:literal 5)) ((:vector) (:store a) (:literal 5) (:eos))
-       (:describe "Foobar" (:literal 5)) ((:push-describe "Foobar") (:literal 5) (:pop-describe))))
-
 (defn ms
   [amp-depth val]
   {:amp-depth amp-depth :val val})

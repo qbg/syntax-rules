@@ -47,12 +47,17 @@
         (recur (conj res (parse-pattern (first form))) (next form)))
       res)))
 
+(defn- parse-describe
+  [form]
+  (let [[_ mesg & pattern] form]
+    `(:describe ~mesg ~(first (parse-seq pattern)))))
+  
 (defn- parse-list
   [form]
   (cond
    (= (first form) '+literal) `(:literal ~(second form))
    (= (first form) '+&) (parse-amp form)
-   (= (first form) '+describe) `(:describe ~(second form) ~(parse-pattern (nth form 2)))
+   (= (first form) '+describe) (parse-describe form)
    :else (cons :list (parse-seq form))))
 
 (defn- parse-vector
@@ -68,30 +73,32 @@
     :else (parse-literal pattern)))
 
 (defn- convert-vars
-  [pattern vars]
+  [pattern vars literals]
   (letfn [(convert-seq
             [coll]
-            (map #(convert-vars % vars) coll))
+            (map #(convert-vars % vars literals) coll))
           (filter-vars
             [v]
             (set (filter vars v)))]
     (condp = (first pattern)
-      :variable (if (contains? vars (second pattern))
-                  pattern
-                  `(:symbol ~(second pattern)))
-      :symbol pattern
-      :literal pattern
-      :list `(:list ~@(convert-seq (rest pattern))) 
-      :vector `(:vector ~@(convert-seq (rest pattern)))
-      :describe `(:describe ~(second pattern) ~(convert-vars (nth pattern 2) vars))
-      :amp `(:amp
-              ~(filter-vars (nth pattern 1))
-              ~@(convert-seq (nthnext pattern 2))))))
+	:variable (cond
+		   (vars (second pattern)) pattern
+		   (literals (second pattern)) `(:literal ~(second pattern))
+		   :else `(:symbol ~(second pattern)))
+	:symbol pattern
+	:literal pattern
+	:list `(:list ~@(convert-seq (rest pattern))) 
+	:vector `(:vector ~@(convert-seq (rest pattern)))
+	:describe `(:describe ~(second pattern)
+			      ~(convert-vars (nth pattern 2) vars))
+	:amp `(:amp
+	       ~(filter-vars (nth pattern 1))
+	       ~@(convert-seq (nthnext pattern 2))))))
 
 (defn build-rule-template
-  [rule template]
+  [rule template literals]
   (let [rule (parse-pattern rule)
         template (parse-pattern template)
         vars (pattern-vars rule)
-        template (convert-vars template vars)]
+        template (convert-vars template vars (set literals))]
     [rule template]))

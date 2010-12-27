@@ -24,6 +24,7 @@
     '(a 1 b ...) '(:list (:variable a) (:literal 1) (:amp #{b} (:variable b)))
     '(+literal a) '(:literal a)
     '(+describe "Foobar" 5) '(:describe "Foobar" (:literal 5))
+    '(+describe "Foobar" a ...) '(:describe "Foobar" (:amp #{a} (:variable a)))
     '(+& a) '(:amp #{a} (:variable a))))
 
 (deftest test-parse-vector
@@ -38,7 +39,7 @@
     '[a b] '(:vector (:variable a) (:variable b))))
 
 (deftest test-convert-vars
-  (are [form vars res] (= (#'pp/convert-vars form vars) res)
+  (are [form vars res] (= (#'pp/convert-vars form vars '#{foobar}) res)
     '(:variable dolists) '#{dolists} '(:variable dolists)
     '(:variable a) '#{dolists} '(:symbol a)
     '(:literal 1) '#{dolists} '(:literal 1)
@@ -46,15 +47,14 @@
     '(:amp #{a b} (:list (:variable a) (:variable b))) '#{a} '(:amp #{a} (:list (:variable a) (:symbol b)))
     '(:list (:variable a) (:amp #{b} (:variable b))) '#{b} '(:list (:symbol a) (:amp #{b} (:variable b)))
     '(:vector (:variable a) (:amp #{b} (:variable b))) '#{b} '(:vector (:symbol a) (:amp #{b} (:variable b)))
-    ))
+    '(:variable foobar) '(:literal foobar)))
 
 (deftest test-rule-template
   (are [rule template e-rule e-template]
-    (= (build-rule-template rule template) [e-rule e-template])
+    (= (build-rule-template rule template []) [e-rule e-template])
     
     '1 '1 '(:literal 1) '(:literal 1)
     
     '(let [(+& var rhs)] body) '((fn [var ...] body) rhs ...)
     '(:list (:variable let) (:vector (:amp #{var rhs} (:variable var) (:variable rhs))) (:variable body))
-    '(:list (:list (:symbol fn) (:vector (:amp #{var} (:variable var))) (:variable body)) (:amp #{rhs} (:variable rhs)))
-    ))
+    '(:list (:list (:symbol fn) (:vector (:amp #{var} (:variable var))) (:variable body)) (:amp #{rhs} (:variable rhs)))))

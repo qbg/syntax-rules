@@ -5,9 +5,10 @@
 
 (def ar
   (make-apply-rules
-    'let
-    '[(let [(+& var rhs)] body ...)]
-    '[((fn [var ...] body ...) rhs ...)]))
+   'let
+   []
+   '[(let [(+& var rhs)] body ...)]
+   '[((fn [var ...] body ...) rhs ...)]))
 
 (deftest test-apply-rules
   (are [form res] (= (ar form) res)
@@ -16,9 +17,7 @@
 
 (deftest test-order-progress
   (are [a b r] (= (#'sr/order-progress a b) r)
-       [:f :f] [:f] true
-       [:f] [:l] true
-       [:l] [:f] false
-       [:i :f] [:f] false
-       [:f] [:i :f] true
-       [:i :f :i] [:i :f :f] false))
+       [2] [1] true
+       [0 1] [1] false
+       [1] [0 1] true
+       [0 1 0] [0 2] false))

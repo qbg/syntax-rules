@@ -11,38 +11,41 @@
    (and (empty? p1) (seq p2)) false
    (and (seq? p1) (empty? p2)) true
    (= (first p1) (first p2)) (recur (next p1) (next p2))
-   (= (first p2) :l) true
-   (= (first p1) :l) false
-   (= (first p2) :i) true
-   (= (first p1) :i) false
-   :else (recur (next p1) (next p2))))
+   (> (first p1) (first p2)) true
+   :else false))
+
+(defn- throw-match-error
+  [name results]
+  (let [res (first (sort-by :progress (comparator order-progress) results))
+	mesg (if-let [d (:describe res)]
+	       (if (vector? d)
+		 (apply format "%s: %s" d)
+		 (format "Expected %s" d)))]
+    (throw (Exception. (format "%s: %s" name mesg)))))
+
+(defn- perform-match
+  [form rt]
+  (let [[rule template] rt]
+    (assoc (pm/match rule form)
+      :template template)))
 
 (defn make-apply-rules 
-  [name rules templates]
-  (let [rule-templates (map pp/build-rule-template rules templates)]
+  [name literals rules templates]
+  (let [rule-templates (map #(pp/build-rule-template %1 %2 literals)
+			    rules templates)]
     (fn [form]
-      (loop [rt rule-templates, results []]
-        (if-let [[[rule template] & rt] rt]
-          (let [m (pm/match rule form)]
-	    (if (:good m)
-	      (tf/fill-template template (:vars m))
-	      (recur rt (conj results m))))
-	  (let [res (sort-by :progress (comparator order-progress) results)
-		res (first res)
-		form (:form res)
-		mesg (if-let [d (:describe res)]
-		       (if (vector? d)
-			 (format "%s: %s" (first d) (second d))
-			 (format "Expected %s in %s" d (:form res)))
-		       (format "Bad syntax in %s" form))]
-	    (throw (Exception. (format "%s: %s" name mesg)))))))))
+      (let [results (map (partial perform-match form) rule-templates)]
+	(if-let [m (first (filter :good results))]
+	  (tf/fill-template (:template m) (:vars m))
+	  (throw-match-error name results))))))
 
 (defmacro defsyntax-rules
   "Define a macro that uses the rule-template pairs to expand all invokations"
-  [name & rt-pairs]
+  [name literals & rt-pairs]
+  (assert (vector? literals))
   (let [rules (take-nth 2 rt-pairs)
         templates (take-nth 2 (rest rt-pairs))]
-    `(let [ar# (make-apply-rules '~name '~rules '~templates)]
+    `(let [ar# (make-apply-rules '~name '~literals '~rules '~templates)]
        (defmacro ~name
          [& ~'forms]
          (ar# ~'&form)))))
