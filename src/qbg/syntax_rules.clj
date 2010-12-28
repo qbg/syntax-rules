@@ -27,7 +27,8 @@
      (syntax-to-form template []))
   ([template literals]
      (let [literals (set literals)
-	   template (pp/parse-pattern template literals)
+	   options {:literals literals :ns *ns*}
+	   template (pp/parse-pattern template options)
 	   res (tf/fill-template template pm/*current-match*)]
        res)))
 

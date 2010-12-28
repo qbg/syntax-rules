@@ -1,4 +1,6 @@
-(ns qbg.syntax-rules.template-fill)
+(ns qbg.syntax-rules.template-fill
+  (:require
+   [qbg.syntax-rules.pattern-parse :as pp]))
 
 (declare fill-form fill-amp fill-head)
 
@@ -6,12 +8,21 @@
   [form state mappings]
   (second form))
 
+(defn- multisegment?
+  [name]
+  (boolean (some #{\.} (str name))))
+
+(defn- split-symbol
+  [sym]
+  (map symbol (.split (str sym) "\\.")))
+
 (defn- fill-simple-variable
   [variable state]
   (let [v (get (:vars state) variable)]
     (if (= (:amp-depth v) 0)
       (:val v)
-      (throw (IllegalStateException. (format "Inconsistent ampersand depth: %s" variable))))))
+      (let [mesg (format "Inconsistent ampersand depth: %s" variable)]
+	(throw (IllegalStateException. mesg))))))
 
 (defn- fill-symbol
   [sym mappings]
@@ -22,9 +33,10 @@
 
 (defn- fill-variable
   [form state mappings]
-  (if (not (contains? (:vars state) (second form)))
-    (fill-symbol (second form) mappings)
-    (fill-simple-variable (second form) state)))
+  (let [sym (second form)]
+    (if (not (contains? (:vars state) sym))
+      (fill-symbol sym mappings)
+      (fill-simple-variable sym state))))
 
 (defn- fill-seq
   [form state mappings]
@@ -83,7 +95,7 @@
 (defn- fill-amp
   [form state mappings]
   (let [[_ vars & forms] form
-        length (get-var-length vars state)]
+	length (get-var-length vars state)]
     (assert-vars vars state)
     (loop [res [], n 0, state state]
       (if (< n length)
@@ -127,34 +139,80 @@
 	:vector (apply find-symbols (rest form))
 	:amp (apply find-symbols (rest (rest form)))
 	:literal #{}
-	:code #{}))
+	:code #{}
+	:head (apply find-symbols (rest form))))
   ([state form & forms]
      (reduce into (find-symbols state form)
 	     (map #(find-symbols state %) forms))))
 
 (defn- make-mappings
   [syms]
-  (let [needed (filter #(or (nil? %) (not (resolve %))) syms)
+  (let [needed (filter #(and
+			 (not (multisegment? %))
+			 (not (resolve %))) syms)
         mappings (zipmap needed (map gensym needed))]
     (reduce #(assoc %1 %2 %2)
-	    mappings '[quote def var recur do if throw try monitor-enter monitor-exit
-		       . new set!])))
+	    mappings '[quote def var recur do if throw try monitor-enter
+		       monitor-exit . new set!])))
+
+(defn- map-depth
+  [f depth coll]
+  (if (= depth 0)
+    (f coll)
+    (vec (map #(map-depth f (dec depth) %) coll))))
+
+(defn- flatten-n
+  [n coll]
+  (if (= n 0)
+    [coll]
+    (mapcat #(flatten-n (dec n) %) coll)))
+
+(defn- get-nested-val
+  [state var-parts]
+  (let [v (first var-parts)
+	vm ((:vars state) v)
+	d (:amp-depth vm)]
+    (if vm
+      (if (empty? (next var-parts))
+	(if (contains? (:varm state) v)
+	  [d (map-depth :mega d (:val vm))]
+	  [d (:val vm)])
+	(let [vps (next var-parts)
+	      init (map-depth #(get-nested-val % vps) d (:val vm))
+	      parts (flatten-n d init)]
+	  (if (some false? parts)
+	    false
+	    (let [depths (map first parts)
+		  _ (if (not (apply = depths))
+		      (throw (IllegalStateException. "Inconsistent depth")))
+		  depth (first depths)]
+	      [(+ depth d) (map-depth second d init)]))))
+      false)))
+
+(defn- create-nested-var
+  [state sym]
+  (let [var-parts (split-symbol sym)
+	nv (get-nested-val state var-parts)]
+    (if nv
+      (let [[d val] nv]
+	[[sym {:amp-depth d :val val}]])
+      [])))
+
+(defn- add-nested-vars
+  [vars state]
+  (let [new-vars (mapcat #(create-nested-var state %) vars)]
+    (assoc state
+      :vars (into {} new-vars)
+      :varm #{})))
 
 (defn- compact-state
-  [state]
-  (letfn [(pack-state [state v]
-	    (let [primary (into {} (map #(fix-name v %) (:vars state)))
-		  f (fn [[k v]] (pack-state v k))]
-	      (apply merge primary (map f (:varm state)))))
-	  (fix-name [pre [k v]] [(symbol (str pre "." k)) v])]
-    (let [vars (:vars state)
-	  secondary (map (fn [[k v]] (pack-state v k)) (:varm state))]
-      (assoc state
-	:vars (apply merge vars secondary)))))
-
+  [state form]
+  (let [vars (pp/pattern-vars form)]
+    (add-nested-vars vars state)))
+  
 (defn fill-template
   [form state]
-  (let [state (compact-state state)
+  (let [state (compact-state state form)
 	syms (find-symbols state form)
 	mappings (make-mappings syms)]
     (fill-form form state mappings)))

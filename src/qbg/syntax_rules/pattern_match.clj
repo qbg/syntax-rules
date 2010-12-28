@@ -116,10 +116,11 @@
   (fn [state]
     (let [vars (:vars state)
 	  push-var (fn [vars v]
-		     (let [vm (lookup-var vars v)]
+		     (let [vm (lookup-var vars v)
+			   depth (inc (or (:depth vm) 0))]
 		       (assoc vars v
-			      {:amp-depth (max (:amp-depth vm)
-					       (inc (count (:val vm))))
+			      {:depth depth
+			       :amp-depth (max (:amp-depth vm) depth)
 			       :val (conj (:val vm) [] var-marker)})))]
       (assoc state :vars (reduce push-var vars vs)))))
 
@@ -137,7 +138,12 @@
   [vs]
   (fn [state]
     (let [vars (:vars state)
-	  collect-var (fn [vars v] (update-in vars [v :val] pack-var))]
+	  collect-var (fn [vars v]
+			(let [vm (vars v)
+			      vm (assoc vm
+				   :val (pack-var (:val vm))
+				   :depth (dec (:depth vm)))]
+			  (assoc vars v vm)))]
       (assoc state :vars (reduce collect-var vars vs)))))
 
 (defn- do-clean-vars
@@ -165,7 +171,7 @@
       (assoc state
 	:vstack (conj (:vstack state) entry)
 	:vars {}
-	:varm {}))))
+	:varm #{}))))
 
 (defn- do-pop-state
   [variable]
@@ -174,7 +180,11 @@
 		 :varm (:varm state)}
 	  top (peek (:vstack state))
 	  vars (:vars top)
-	  varm (assoc (:varm top) variable entry)]
+	  val (:val (get vars variable))
+	  entry (conj entry {:mega (peek val)})
+	  val (conj (pop val) entry)
+	  vars (assoc-in vars [variable :val] val)
+	  varm (conj (:varm top) variable)]
       (assoc state
 	:vstack (pop (:vstack state))
 	:vars vars
@@ -221,13 +231,19 @@
   (fn [state]
     ((apply klass args) state)))
 
+(defn- dirty-fill
+  [template state]
+  (let [state (fixup-state state)]
+    (binding [*current-match* state]
+      (tf/fill-template template state)))) 
+
 (defn- do-pattern
   [cmds template]
   (fn [state]
     (let [input (:input state)
 	  progress (:progress state)
-	  ft (tf/fill-template template state)
-	  st (assoc state :input ft)
+	  ft (dirty-fill template state)
+	  st (assoc state :input [ft])
 	  st (exe-commands cmds st)]
       (assoc st :progress progress :input input))))
 
@@ -350,7 +366,7 @@
   [input]
   {:vars {} :input [input] :istack [] :good true
    :dstack ["Bad syntax"] :progress [0]
-   :vstack [] :varm {}
+   :vstack [] :varm #{}
    :params {} :param-stack []})
 
 (defn- exe-commands
@@ -367,19 +383,29 @@
     (recur (pop v))
     (peek v)))
 
+(defn- map-depth
+  [f d coll]
+  (if (= d 0)
+    (f coll)
+    (vec (map #(map-depth f (dec d) %) coll))))
+
 (defn- fix-vars
   [state]
-  (let [fix (fn [[k v]] [k (update-in v [:val] last-non-marker)])
-	fixm (fn [[k v]] [k (fix-vars v)])]
+  (let [fix (fn [[k v]]
+	      (let [v (update-in v [:val] last-non-marker)
+		    d (:amp-depth v)
+		    v (if ((:varm state) k)
+			(update-in v [:val] #(map-depth fix-vars d %))
+			v)]
+		[k v]))]
     (assoc state
-      :vars (into {} (map fix (:vars state)))
-      :varm (into {} (map fixm (:varm state))))))
+      :vars (into {} (map fix (:vars state))))))
 
 (defn- fixup-state
   [state]
   (let [state (fix-vars state)]
     {:vars (if (:good state) (:vars state) {})
-     :varm (if (:good state) (:varm state) {})
+     :varm (if (:good state) (:varm state) #{})
      :good (:good state)
      :describe (peek (:dstack state))
      :progress (:progress state)}))

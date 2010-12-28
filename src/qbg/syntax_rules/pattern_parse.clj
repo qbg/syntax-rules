@@ -1,6 +1,6 @@
 (ns qbg.syntax-rules.pattern-parse)
 
-(defn- pattern-vars
+(defn pattern-vars
   ([]
      #{})
   ([form]
@@ -17,7 +17,7 @@
 	 :or (apply pattern-vars (rest form))
 	 :list (apply pattern-vars (rest form))
 	 :vector (apply pattern-vars (rest form))
-	 :amp (apply pattern-vars (rest (rest form)))))
+	 :amp (second form)))
   ([form & forms]
      (reduce into (pattern-vars form) (map pattern-vars forms))))
 
