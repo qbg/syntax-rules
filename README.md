@@ -78,6 +78,11 @@ takes two arguments, a message and an expression; the semantics are that of a
 semantics are equivalent to that of a `+pattern` directive. See the second
 `plet` example for a definition of a syntax class. 
 
+## Builtin syntax classes
+
+`c-symbol`, `c-number`, `c-keyword`, `c-map`, and `c-set` are the syntax classes
+for symbols, numbers, keywords, maps, and sets.
+
 ## Examples
 
 A `while` macro can be defined as:

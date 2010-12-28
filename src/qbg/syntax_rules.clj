@@ -2,7 +2,8 @@
   (:require
     [qbg.syntax-rules.pattern-parse :as pp]
     [qbg.syntax-rules.pattern-match :as pm]
-    [qbg.syntax-rules.template-fill :as tf]))
+    [qbg.syntax-rules.template-fill :as tf]
+    [clojure.template :as t]))
 
 (defn- throw-match-error
   [name results line file]
@@ -81,6 +82,7 @@
        (pm/make-syntax-class '~args ~args '~class-pattern))))
 
 (defn check-duplicate
+  "Return the duplicate item in coll if there is one, or false"
   [coll]
   (loop [seen #{}, coll coll]
     (if (seq coll)
@@ -89,12 +91,23 @@
 	(recur (conj seen (first coll)) (next coll)))
       false)))
 
-(defsyntax-class distinct-bindings []
-  "binding vector"
-  []
-  [(+head var rhs) ...]
-  :fail-when "duplicate variable name" (check-duplicate (syntax (var ...))))
+(defn pred-check
+  "Return false if (pred coll) is true, coll otherwise"
+  [pred coll]
+  (if (pred coll)
+    false
+    coll))
 
-(defsyntax-rules plet []
-  (plet (+var b distinct-bindings) body ...)
-  ((fn [b.var ...] body ...) b.rhs ...))
+(t/do-template
+ [name descript pred]
+ (defsyntax-class name []
+   ""
+   []
+   form
+   :fail-when descript (pred-check pred (syntax form)))
+
+ c-symbol "expected symbol" symbol?
+ c-number "expected number" number?
+ c-keyword "expected keyword" keyword?
+ c-map "expected map" map?
+ c-set "expected set" set?)
