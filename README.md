@@ -1,8 +1,9 @@
 # syntax-rules
 
 A library for defining hygienic macros based on pattern matching. This library
-is an adaptation of syntax-rules from Scheme and incorporates some of the
-features in syntax-parse from Racket.
+provides many features of `syntax-parse` from Racket and provides a
+`syntax-rules`-based interface and a `syntax-case`-based interface to its
+facilities.
 
 ## Usage
 
@@ -77,6 +78,10 @@ takes two arguments, a message and an expression; the semantics are that of a
 `+guard` directive. The :with option takes a pattern and a template; its
 semantics are equivalent to that of a `+pattern` directive. See the second
 `plet` example for a definition of a syntax class. 
+
+`#'qbg.syntax-rules/defsyntax-case` is the syntax-case version of
+`defsyntax-rules`. That is, instead of a template there is an expression to
+execute when the corresponding rule matches.
 
 ## Builtin syntax classes
 
@@ -165,6 +170,14 @@ multiple `var`s to have the same name. We can see how this plays out in action:
     ; java.lang.Exception: plet: expected binding vector in: 17 (qbg/syntax_rules.clj:5) (NO_SOURCE_FILE:0)
 As seen, the use of syntax classes provide a sharper error message than the
 first definition.
+
+We can also define macros using the `syntax-case`-based interface:
+    (defsyntax-case adder []
+      (adder a b)
+      `(+ ~(syntax a) ~(syntax b)))
+    
+    (macroexpand '(adder 1 2))
+    ;=> (clojure.core/+ 1 2)
 
 ## Limitations
 

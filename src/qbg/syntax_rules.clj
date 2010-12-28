@@ -61,6 +61,19 @@
 	  (tf/fill-template (:template m) m)
 	  (throw-match-error name results line file))))))
 
+(defn make-apply-cases
+  [name literals rules thunks]
+  (let [options {:literals (set literals) :ns *ns*}
+	rt (map (fn [r t] [(pp/parse-pattern r options) t]) rules thunks)
+	file *file*]
+    (fn [form]
+      (let [results (map (partial perform-match form) rt)
+	    line (:line (meta form))]
+	(if-let [m (first (filter :good results))]
+	  (binding [pm/*current-match* m]
+	    ((:template m)))
+	  (throw-match-error name results line file))))))
+
 (defmacro defsyntax-rules
   "Define a macro that uses the rule-template pairs to expand all invokations"
   [name literals & rt-pairs]
@@ -71,6 +84,18 @@
        (defmacro ~name
          [& ~'forms]
          (ar# ~'&form)))))
+
+(defmacro defsyntax-case
+  [name literals & rt-pairs]
+  (assert (vector? literals))
+  (let [rules (take-nth 2 rt-pairs)
+	thunks (take-nth 2 (rest rt-pairs))
+	thunkify (fn [c] `(fn [] ~c))
+	thunks (vec (map thunkify thunks))]
+    `(let [ac# (make-apply-cases '~name '~literals '~rules ~thunks)]
+       (defmacro ~name
+	 [& ~'forms]
+	 (ac# ~'&form)))))
 
 (defmacro defsyntax-class
   "Define a new syntax class"
