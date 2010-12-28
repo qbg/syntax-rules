@@ -38,6 +38,12 @@ The list `(+guard <mesg> <code>)` will execute the form `<code>`. If `<code>`
 returns a true value, `<mesg>` will be reported as the type of error with the
 result being the form that caused the error. This operation consumes no input.
 
+The list `(+var <name> <class> <args> ...)` is a pattern variable declaration
+for `<name>` with the restriction that it will only match if the syntax class
+named by `<class>` with `<args>` as arguments matches. A pattern variable named
+`foo` that is defined in the syntax class can be accessed by `<name>.foo`. See
+`defsyntax-class` for defining syntax classes.
+
 When a macro defined defsyntax-rules encounters a syntax error (that is, when
 none of the rules match), all of the rules are examined to determine which one
 has matched the most of the form.  An error message is then generated from the
@@ -57,6 +63,20 @@ is the mechanism to gain access to the values of pattern variables in a guard.
 `#'qbg.syntax-rules/absent?` is a function that takes the name of a pattern
 variable (a symbol) and returns true if the pattern variable has not been bound
 in the current match.
+
+`#'qbg.syntax-rules/check-duplicate` is a function suitable for some guards. It
+will return the element in a collection that is duplicated if there is one, or
+false otherwise.
+
+`#'qbg.syntax-rules/defsyntax-class` is a macro for defining a syntax class. It
+takes the name of the syntax class, the argument vector for the syntax class,
+the description of the syntax class, the vector of literals used in the syntax
+class, and then finally its body. The body is split into multiple parts; each
+part consists of a pattern, and then various options. The :fail-when option
+takes two arguments, a message and an expression; the semantics are that of a
+`+guard` directive. The :with option takes a pattern and a template; its
+semantics are equivalent to that of a `+pattern` directive. See the second
+`plet` example for a definition of a syntax class. 
 
 ## Examples
 
@@ -117,6 +137,29 @@ structure, that is they can take a varying number of arguments:
     
     (foo :a 1 :b 2 3 :a 4 :a 5 :b 6 7 :b 8 9 :a 10)
     ;=> [[1 4 5 10] [[2 3] [6 7] [8 9]]]
+
+A better version of `plet` can be defined using syntax classes:
+    (defsyntax-class binding-vector []
+      "binding vector"
+      []
+      [(+head var rhs) ...]
+      :fail-when "duplicate variable name" (check-duplicate (syntax (var ...))))
+    
+    (defsyntax-rules plet []
+      (plet (+var bv binding-vector) body ...)
+      ((fn [bv.var ...] body ...) bv.rhs ...))
+The definition is this way because to `plet` it is considered a syntax error for
+multiple `var`s to have the same name. We can see how this plays out in action:
+    (plet [a 1, a 2] (+ a b))
+    ; java.lang.Exception: plet: duplicate variable name in: a (qbg/syntax_rules.clj:2) (NO_SOURCE_FILE:0)
+    
+    (plet [a 1, b 2, c] (+ a b))
+    ; java.lang.Exception: plet: expected binding vector in: [a 1 b 2 c] (qbg/syntax_rules.clj:4) (NO_SOURCE_FILE:0)
+    
+    (plet 17)
+    ; java.lang.Exception: plet: expected binding vector in: 17 (qbg/syntax_rules.clj:5) (NO_SOURCE_FILE:0)
+As seen, the use of syntax classes provide a sharper error message than the
+first definition.
 
 ## Limitations
 

@@ -14,11 +14,10 @@
     '(:variable +) 'clojure.core/+))
 
 (deftest test-fill-variable
-  (let [s {:vars {'a {:amp-depth 0 :val 5}}
-	   :varm {'b {:vars {'c {:amp-depth 0 :val 6}}}}}]
+  (let [s {:vars {'a {:amp-depth 0 :val 5} 'b.c {:amp-depth 0 :val 6}}}]
     (are [form res] (= (#'tf/fill-variable form s {}) res)
 	 '(:variable a) 5
-	 '(:variable b c) 6)))
+	 '(:variable b.c) 6)))
 
 (deftest test-fill-seq
   (are [form res] (= (#'tf/fill-seq form {:vars {'a {:amp-depth 0 :val 5}}} {'b 'c}) res)

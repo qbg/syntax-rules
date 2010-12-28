@@ -4,21 +4,9 @@
     [qbg.syntax-rules.pattern-match :as pm]
     [qbg.syntax-rules.template-fill :as tf]))
 
-(defn- order-progress
-  [p1 p2]
-  (cond
-   (and (empty? p1) (empty? p2)) false
-   (and (empty? p1) (seq p2)) false
-   (and (seq? p1) (empty? p2)) true
-   (= (first p1) (first p2)) (recur (next p1) (next p2))
-   (= (first p1) :late) true
-   (= (first p2) :late) false
-   (> (first p1) (first p2)) true
-   :else false))
-
 (defn- throw-match-error
   [name results line file]
-  (let [res (first (sort-by :progress (comparator order-progress) results))
+  (let [res (first (sort-by :progress (comparator pm/order-progress) results))
 	mesg (let [d (:describe res)]
 	       (if (vector? d)
 		 (let [[mesg cause] (:describe res)] 
@@ -61,7 +49,8 @@
 
 (defn make-apply-rules 
   [name literals rules templates]
-  (let [rule-templates (map #(pp/build-rule-template %1 %2 literals)
+  (let [ns *ns*
+	rule-templates (map #(pp/build-rule-template %1 %2 literals ns)
 			    rules templates)
 	file *file*]
     (fn [form]
@@ -81,3 +70,31 @@
        (defmacro ~name
          [& ~'forms]
          (ar# ~'&form)))))
+
+(defmacro defsyntax-class
+  "Define a new syntax class"
+  [name args description literals & body]
+  (let [class-pattern (pp/build-class-pattern description literals *ns* body)]
+    `(defn ~name
+       ~(format "The %s syntax class" name)
+       ~args
+       (pm/make-syntax-class '~args ~args '~class-pattern))))
+
+(defn check-duplicate
+  [coll]
+  (loop [seen #{}, coll coll]
+    (if (seq coll)
+      (if (contains? seen (first coll))
+	(first coll)
+	(recur (conj seen (first coll)) (next coll)))
+      false)))
+
+(defsyntax-class distinct-bindings []
+  "binding vector"
+  []
+  [(+head var rhs) ...]
+  :fail-when "duplicate variable name" (check-duplicate (syntax (var ...))))
+
+(defsyntax-rules plet []
+  (plet (+var b distinct-bindings) body ...)
+  ((fn [b.var ...] body ...) b.rhs ...))

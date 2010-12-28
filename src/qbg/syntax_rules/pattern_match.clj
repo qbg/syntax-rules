@@ -7,6 +7,18 @@
 
 (def var-marker (Object.))
 
+(defn order-progress
+  [p1 p2]
+  (cond
+   (and (empty? p1) (empty? p2)) false
+   (and (empty? p1) (seq p2)) false
+   (and (seq? p1) (empty? p2)) true
+   (= (first p1) (first p2)) (recur (next p1) (next p2))
+   (= (first p1) :late) true
+   (= (first p2) :late) false
+   (> (first p1) (first p2)) true
+   :else false))
+
 (defn- current-item
   [state]
   (first (:input state)))
@@ -187,16 +199,22 @@
 	    (exe-commands final state)
 	    state))))))
 
+(defn- fail-or
+  [states]
+  (let [cmp (comparator order-progress)
+	best (first (sort-by :progress cmp states))]
+    (fail-state best)))
+
 (defn- do-or
   [cmds]
   (fn [state]
-    (loop [cmds cmds]
+    (loop [cmds cmds, res []]
       (if (seq cmds)
 	(let [st (exe-commands (first cmds) state)]
 	  (if (:good st)
 	    st
-	    (recur (next cmds))))
-	(fail-state state)))))
+	    (recur (next cmds) (conj res st))))
+	(fail-or res)))))
 
 (defn- do-varclass
   [klass & args]
@@ -290,9 +308,9 @@
 (defn- compile-varclass
   [form]
   (let [[_ variable klass & args] form]
-    [(do-in-progress) (do-push-state) (do-store variable)
-     (apply do-varclass klass args) (move-forward)
-     (do-pop-state) (do-out-progress)]))
+    [(do-in-progress) (do-store variable) (do-push-state)
+     (apply do-varclass klass args)
+     (do-pop-state variable) (do-out-progress)]))
 
 (defn- compile-and
   [form]
@@ -324,7 +342,8 @@
        :describe compile-describe
        :and compile-and
        :or compile-or
-       :guard compile-guard)
+       :guard compile-guard
+       :varclass compile-varclass)
    form))
 
 (defn- make-state
@@ -371,14 +390,10 @@
        (exe-commands (compile-pattern pattern))
        fixup-state))
 
-(defn- sc-split
-  [body]
-  (->> body
-       (partition-by seq?)
-       (partition-all 2)
-       (map #(apply concat %))))
-
-;(defn make-syntax-class
-;  [vars values description body]
-;  (let [parts (sc-split body)]
-;    nil))
+(defn make-syntax-class
+  [vars vals pattern]
+  (let [cmds (concat [(do-push-params (zipmap vars vals))]
+		     (compile-pattern pattern)
+		     [(do-pop-params)])]
+    (fn [state]
+      (exe-commands cmds state))))

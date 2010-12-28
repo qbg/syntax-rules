@@ -1,6 +1,6 @@
 (ns qbg.syntax-rules.template-fill)
 
-(declare fill-form fill-amp)
+(declare fill-form fill-amp fill-head)
 
 (defn- fill-literal
   [form state mappings]
@@ -11,7 +11,7 @@
   (let [v (get (:vars state) variable)]
     (if (= (:amp-depth v) 0)
       (:val v)
-      (throw (IllegalStateException. "Inconsistent ampersand depth")))))
+      (throw (IllegalStateException. (format "Inconsistent ampersand depth: %s" variable))))))
 
 (defn- fill-symbol
   [sym mappings]
@@ -22,22 +22,21 @@
 
 (defn- fill-variable
   [form state mappings]
-  (cond
-   (> (count form) 2)
-   (recur (next form) (get (:varm state) (second form)) mappings)
-
-   (not (contains? (:vars state) (second form)))
-   (fill-symbol (second form) mappings)
-   
-   :else (fill-simple-variable (second form) state)))
+  (if (not (contains? (:vars state) (second form)))
+    (fill-symbol (second form) mappings)
+    (fill-simple-variable (second form) state)))
 
 (defn- fill-seq
   [form state mappings]
   (loop [res [], form form]
     (if (seq form)
-      (if (= (first (first form)) :amp)
-        (recur (into res (fill-amp (first form) state mappings)) (next form))
-        (recur (conj res (fill-form (first form) state mappings)) (next form)))
+      (cond
+       (= (first (first form)) :amp)
+       (recur (into res (fill-amp (first form) state mappings)) (next form))
+       (= (first (first form)) :head)
+       (recur (into res (fill-head (first form) state mappings)) (next form))
+       :else
+       (recur (conj res (fill-form (first form) state mappings)) (next form)))
       res)))
 
 (defn- fill-list
@@ -94,6 +93,11 @@
           (drop-vars vars state))
         (apply concat res)))))
 
+(defn- fill-head
+  [form state mappings]
+  (let [forms (rest form)]
+    (map fill-form forms)))
+
 (defn- fill-form
   [form state mappings]
   ((condp = (first form)
@@ -128,6 +132,21 @@
 	    mappings '[quote def var recur do if throw try monitor-enter monitor-exit
 		       . new set!])))
 
+(defn- compact-state
+  [state]
+  (letfn [(pack-state [state v]
+	    (let [primary (into {} (map #(fix-name v %) (:vars state)))
+		  f (fn [[k v]] (pack-state v k))]
+	      (apply merge primary (map f (:varm state)))))
+	  (fix-name [pre [k v]] [(symbol (str pre "." k)) v])]
+    (let [vars (:vars state)
+	  secondary (map (fn [[k v]] (pack-state v k)) (:varm state))]
+      (assoc state
+	:vars (apply merge vars secondary)))))
+
 (defn fill-template
   [form state]
-  (fill-form form state (make-mappings (find-symbols state form))))
+  (let [state (compact-state state)
+	syms (find-symbols state form)
+	mappings (make-mappings syms)]
+    (fill-form form state mappings)))

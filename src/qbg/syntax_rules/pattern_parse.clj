@@ -23,52 +23,51 @@
 (declare parse-pattern parse-seq)
 
 (defn- parse-symbol
-  [form literals]
-  (if (contains? literals form)
+  [form options]
+  (if (contains? (:literals options) form)
     `(:literal ~form)
-    (let [parts (.split (str form) "\\.")]
-      `(:variable ~@(map symbol parts)))))
+    `(:variable ~form)))
 
 (defn- parse-varclass
-  [form literals]
+  [form options]
   (let [[_ variable class & args] form]
-    `(:varclass ~variable ~(resolve class) ~@args)))
+    `(:varclass ~variable ~(ns-resolve (:ns options) class) ~@args)))
 
 (defn- parse-literal
-  [form literals]
+  [form options]
   `(:literal ~form))
 
 (defn- parse-amp
-  [form literals]
+  [form options]
   (let [templates (rest form)
-        body (parse-seq templates literals)
+        body (parse-seq templates options)
         vars (apply pattern-vars body)]
     `(:amp ~vars ~@body)))
 
 (defn- parse-ellipsis
-  [pattern literals]
-  (let [pat (parse-pattern pattern literals)
+  [pattern options]
+  (let [pat (parse-pattern pattern options)
 	vars (pattern-vars pat)]
     `(:amp ~vars ~pat)))
 
 (defn- parse-seq
-  [form literals]
+  [form options]
   (loop [res [], form (seq form)]
     (if (seq form)
       (if (= (second form) '...)
-        (recur (conj res (parse-ellipsis (first form) literals)) (nthnext form 2))
-        (recur (conj res (parse-pattern (first form) literals)) (next form)))
+        (recur (conj res (parse-ellipsis (first form) options)) (nthnext form 2))
+        (recur (conj res (parse-pattern (first form) options)) (next form)))
       res)))
 
 (defn- parse-describe
-  [form literals]
+  [form options]
   (let [[_ mesg & pattern] form]
-    `(:describe ~mesg ~(first (parse-seq pattern literals)))))
+    `(:describe ~mesg ~(first (parse-seq pattern options)))))
 
 (defn- parse-pattern-form
-  [form literals]
+  [form options]
   (let [[_ & pt] form
-	[pattern template] (parse-seq pt literals)]
+	[pattern template] (parse-seq pt options)]
     `(:pattern ~pattern ~template)))
 
 (defn- parse-guard
@@ -77,34 +76,77 @@
     `(:guard ~mesg ~(ns-name *ns*) ~code)))
 
 (defn- parse-list
-  [form literals]
+  [form options]
   (cond
    (= (first form) '+literal) `(:literal ~(second form))
-   (= (first form) '+&) (parse-amp form literals)
-   (= (first form) '+describe) (parse-describe form literals)
-   (= (first form) '+var) (parse-varclass form literals)
-   (= (first form) '+head) `(:head ~@(parse-seq (rest form) literals))
-   (= (first form) '+and) `(:and ~@(parse-seq (rest form) literals))
-   (= (first form) '+or) `(:or ~@(parse-seq (rest form) literals))
-   (= (first form) '+pattern) (parse-pattern-form form literals)
+   (= (first form) '+&) (parse-amp form options)
+   (= (first form) '+describe) (parse-describe form options)
+   (= (first form) '+var) (parse-varclass form options)
+   (= (first form) '+head) `(:head ~@(parse-seq (rest form) options))
+   (= (first form) '+and) `(:and ~@(parse-seq (rest form) options))
+   (= (first form) '+or) `(:or ~@(parse-seq (rest form) options))
+   (= (first form) '+pattern) (parse-pattern-form form options)
    (= (first form) '+guard) (parse-guard form)
-   :else (cons :list (parse-seq form literals))))
+   :else (cons :list (parse-seq form options))))
 
 (defn- parse-vector
-  [form literals]
-  (cons :vector (parse-seq form literals)))
+  [form options]
+  (cons :vector (parse-seq form options)))
 
 (defn parse-pattern
-  [pattern literals]
+  [pattern options]
   (cond
-    (symbol? pattern) (parse-symbol pattern literals)
-    (seq? pattern) (parse-list pattern literals)
-    (vector? pattern) (parse-vector pattern literals)
-    :else (parse-literal pattern literals)))
+    (symbol? pattern) (parse-symbol pattern options)
+    (seq? pattern) (parse-list pattern options)
+    (vector? pattern) (parse-vector pattern options)
+    :else (parse-literal pattern options)))
 
 (defn build-rule-template
-  [rule template literals]
+  [rule template literals ns]
   (let [literals (set literals)
-	rule (parse-pattern rule literals)
-        template (parse-pattern template literals)]
+	options {:literals literals :ns ns}
+	rule (parse-pattern rule options)
+        template (parse-pattern template options)]
     [rule template]))
+
+(defn- sc-split
+  [form]
+  (loop [body (next form), res [], part [(first form)]]
+    (cond
+     (empty? body)
+     (conj res part)
+
+     (not (keyword (first body)))
+     (recur (next body) (conj res part) [(first body)])
+
+     (= (first body) :fail-when)
+     (recur (nthnext body 3) res (conj part :fail-when (nth body 1) (nth body 2)))
+
+     (= (first body) :with)
+     (recur (nthnext body 3) res (conj part :with (nth body 1) (nth body 2))))))
+
+(defn- build-part-pattern
+  [part options]
+  (loop [res [(parse-pattern (first part) options)], parts (next part)]
+    (cond
+     (empty? parts) `(:head ~@res)
+
+     (= (first parts) :fail-when)
+     (let [[_ mesg code & parts] parts
+	   guard `(:guard ~mesg ~(ns-name *ns*) ~code)]
+       (recur (conj res guard) parts))
+
+     (= (first parts) :with)
+     (let [[_ pattern template & parts] parts
+	   pattern (parse-pattern pattern options)
+	   template (parse-pattern template options)
+	   pat `(:pattern ~pattern ~template)]
+       (recur (conj res pat) parts)))))
+
+(defn build-class-pattern
+  [description literals ns body]
+  (let [literals (set literals)
+	options {:literals literals :ns ns}
+	parts (sc-split body)
+	parts-pattern (map #(build-part-pattern % options) parts)]
+    `(:describe ~description (:or ~@parts-pattern))))
