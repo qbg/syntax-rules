@@ -32,4 +32,5 @@
        '(:vector (:literal 1) (:literal 2) (:amp #{a} (:literal 3) (:variable a))) [1 2 3 1 3 2 3 3]
        '(:variable def) 'def
        '(:variable recur) 'recur
-       '(:vector (:amp #{a} (:variable a)) (:amp #{a} (:variable a))) [1 2 3 1 2 3]))
+       '(:vector (:amp #{a} (:variable a)) (:amp #{a} (:variable a))) [1 2 3 1 2 3]
+       '(:code user (+ 2 2)) 4))

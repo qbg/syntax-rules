@@ -98,6 +98,12 @@
   (let [forms (rest form)]
     (map fill-form forms)))
 
+(defn- fill-code
+  [form state mappings]
+  (let [[_ ns code] form]
+    (binding [*ns* (find-ns ns)]
+      (eval code))))
+
 (defn- fill-form
   [form state mappings]
   ((condp = (first form)
@@ -105,7 +111,8 @@
     :list fill-list
     :vector fill-vector
     :amp fill-amp
-    :literal fill-literal)
+    :literal fill-literal
+    :code fill-code)
     form state mappings))
 
 (defn- find-symbols
@@ -119,7 +126,8 @@
 	:list (apply find-symbols (rest form))
 	:vector (apply find-symbols (rest form))
 	:amp (apply find-symbols (rest (rest form)))
-	:literal #{}))
+	:literal #{}
+	:code #{}))
   ([state form & forms]
      (reduce into (find-symbols state form)
 	     (map #(find-symbols state %) forms))))

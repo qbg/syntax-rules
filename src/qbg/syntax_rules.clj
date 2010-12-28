@@ -58,7 +58,8 @@
       (let [results (map (partial perform-match form) rule-templates)
 	    line (:line (meta form))]
 	(if-let [m (first (filter :good results))]
-	  (tf/fill-template (:template m) m)
+	  (binding [pm/*current-match* m]
+	    (tf/fill-template (:template m) m))
 	  (throw-match-error name results line file))))))
 
 (defn make-apply-cases
@@ -135,4 +136,5 @@
  c-number "expected number" number?
  c-keyword "expected keyword" keyword?
  c-map "expected map" map?
- c-set "expected set" set?)
+ c-set "expected set" set?
+ c-string "expected string" string?)

@@ -45,6 +45,10 @@ named by `<class>` with `<args>` as arguments matches. A pattern variable named
 `foo` that is defined in the syntax class can be accessed by `<name>.foo`. See
 `defsyntax-class` for defining syntax classes.
 
+The list `(+code <code>)` will during the filling of the template be replaced by
+the value of the execution of `<code>`. Any nested `syntax` uses will be treated
+as separate templates, and so auto-gensyms will be different.
+
 When a macro defined defsyntax-rules encounters a syntax error (that is, when
 none of the rules match), all of the rules are examined to determine which one
 has matched the most of the form.  An error message is then generated from the
@@ -85,8 +89,8 @@ execute when the corresponding rule matches.
 
 ## Builtin syntax classes
 
-`c-symbol`, `c-number`, `c-keyword`, `c-map`, and `c-set` are the syntax classes
-for symbols, numbers, keywords, maps, and sets.
+`c-symbol`, `c-number`, `c-keyword`, `c-map`, `c-set`, and `c-string`  are the
+syntax classes for symbols, numbers, keywords, maps, sets, and strings.
 
 ## Examples
 

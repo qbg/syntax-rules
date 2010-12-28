@@ -11,6 +11,7 @@
 	 :pattern (pattern-vars (second form))
 	 :describe (pattern-vars (nth form 2))
 	 :guard #{}
+	 :code #{}
 	 :head (apply pattern-vars (rest form))
 	 :and (apply pattern-vars (rest form))
 	 :or (apply pattern-vars (rest form))
@@ -87,6 +88,7 @@
    (= (first form) '+or) `(:or ~@(parse-seq (rest form) options))
    (= (first form) '+pattern) (parse-pattern-form form options)
    (= (first form) '+guard) (parse-guard form)
+   (= (first form) '+code) `(:code ~(ns-name (:ns options)) ~(second form))
    :else (cons :list (parse-seq form options))))
 
 (defn- parse-vector
