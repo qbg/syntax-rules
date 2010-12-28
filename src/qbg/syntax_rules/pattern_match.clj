@@ -261,7 +261,7 @@
 	      *ns* (find-ns ns)]
       (let [params (:params state)
 	    vars (keys params)
-	    rhss (vals params)
+	    rhss (map (fn [v] `(quote ~v)) (vals params))
 	    res (eval `(let [~@(interleave vars rhss)] ~pred))]
 	(if res
 	  (fail-guard state mesg res)
