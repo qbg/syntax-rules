@@ -44,13 +44,37 @@
 	vars (pattern-vars pat)]
     `(:amp ~vars ~pat)))
 
+(defn- parse-sugar-head
+  [patterns options]
+  `(:head ~@(parse-seq patterns options)))
+
+(defn- parse-sugar-varclass
+  [var klass options]
+  (if (seq? klass)
+    `(:varclass ~var ~(ns-resolve (:ns options) (first klass)) ~@(next klass))
+    `(:varclass ~var ~(ns-resolve (:ns options) klass))))
+
 (defn- parse-seq
   [form options]
   (loop [res [], form (seq form)]
     (if (seq form)
-      (if (= (second form) '...)
-        (recur (conj res (parse-ellipsis (first form) options)) (nthnext form 2))
-        (recur (conj res (parse-pattern (first form) options)) (next form)))
+      (cond
+       (= (first form) ':!)
+       (recur (conj res (parse-literal (second form) options)) (nthnext form 2))
+
+       (= (first form) ':&)
+       (recur (conj res (parse-sugar-head (second form) options)) (nthnext form 2))
+
+       (= (second form) ':>)
+       (recur (conj res
+		    (parse-sugar-varclass (first form) (nth form 2) options))
+	      (nthnext form 3))
+       
+       (= (second form) '...)
+       (recur (conj res (parse-ellipsis (first form) options)) (nthnext form 2))
+
+       :else
+       (recur (conj res (parse-pattern (first form) options)) (next form)))
       res)))
 
 (defn- parse-describe
@@ -66,8 +90,8 @@
 
 (defn- parse-guard
   [form]
-  (let [[_ mesg code] form]
-    `(:guard ~mesg ~(ns-name *ns*) ~code)))
+  (let [[_ code mesg] form]
+    `(:guard ~(ns-name *ns*) ~code ~mesg)))
 
 (defn- parse-list
   [form options]
@@ -126,8 +150,8 @@
      (empty? parts) `(:head ~@res)
 
      (= (first parts) :fail-when)
-     (let [[_ mesg code & parts] parts
-	   guard `(:guard ~mesg ~(ns-name *ns*) ~code)]
+     (let [[_ code mesg & parts] parts
+	   guard `(:guard ~(ns-name *ns*) ~code ~mesg)]
        (recur (conj res guard) parts))
 
      (= (first parts) :with)

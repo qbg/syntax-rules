@@ -15,6 +15,11 @@
 
 (declare foo)
 
+(deftest test-parse-seq
+  (are [form res] (= (#'pp/parse-seq 'form {:literals #{} :ns *ns*}) ['res])
+       (:! a) (:literal a)
+       (:& [a b c]) (:head (:variable a) (:variable b) (:variable c))))
+
 (deftest test-parse-list
   (binding [*ns* (find-ns 'qbg.syntax-rules.test.pattern-parse)]
     (are [form res] (= (#'pp/parse-list form {:literals #{} :ns *ns*}) res)
@@ -27,7 +32,7 @@
 	 '(+or a b) '(:or (:variable a) (:variable b))
 	 '(+and a b) '(:and (:variable a) (:variable b))
 	 '(+pattern a 5) '(:pattern (:variable a) (:literal 5))
-	 '(+guard "foobar" (+ 2 2)) '(:guard "foobar" qbg.syntax-rules.test.pattern-parse (+ 2 2))
+	 '(+guard (+ 2 2) "foobar") '(:guard qbg.syntax-rules.test.pattern-parse (+ 2 2) "foobar")
 	 '(+code (+ 2 2)) '(:code qbg.syntax-rules.test.pattern-parse (+ 2 2)))))
 
 (deftest test-parse-vector
@@ -56,9 +61,9 @@
 (deftest test-build-syntax-class
   (binding [*ns* (find-ns 'qbg.syntax-rules.test.pattern-parse)]
     (are [descript body res] (= (build-class-pattern 'descript [] *ns* 'body) 'res)
-	 "foo" ((1 2) :fail-when "bad" 5 (a b) :with c b)
+	 "foo" ((1 2) :fail-when 5 "bad" (a b) :with c b)
 	 (:describe "foo"
 		    (:or (:head (:list (:literal 1) (:literal 2))
-				(:guard "bad" qbg.syntax-rules.test.pattern-parse 5))
+				(:guard qbg.syntax-rules.test.pattern-parse 5 "bad"))
 			 (:head (:list (:variable a) (:variable b))
 				(:pattern (:variable c) (:variable b))))))))

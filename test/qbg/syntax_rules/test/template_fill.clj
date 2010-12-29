@@ -27,10 +27,19 @@
   (are [form res] (= (#'tf/fill-amp form {:vars {'a {:amp-depth 1 :val [1 2 3]}}} {'b 'c}) res)
     '(:amp #{a} (:variable a) (:variable b)) '(1 c 2 c 3 c)))
 
+(def samp-match
+  {:vars {'a {:amp-depth 1 :val [1 2 3]}
+	  'b {:amp-depth 1 :val [{:vars {'c {:amp-depth 1 :val [1 2 3]}} :varm #{}}
+				 {:vars {'c {:amp-depth 1 :val [4 5 6]}} :varm #{}}]}}
+   :varm #{'b}})
+
 (deftest test-fill-template
-  (are [form res] (= (fill-template form {:vars {'a {:amp-depth 1 :val [1 2 3]}}}) res)
+  (are [form res] (= (fill-template form samp-match) res)
        '(:vector (:literal 1) (:literal 2) (:amp #{a} (:literal 3) (:variable a))) [1 2 3 1 3 2 3 3]
        '(:variable def) 'def
        '(:variable recur) 'recur
        '(:vector (:amp #{a} (:variable a)) (:amp #{a} (:variable a))) [1 2 3 1 2 3]
-       '(:code user (+ 2 2)) 4))
+       '(:code user (+ 2 2)) 4
+       
+       '(:vector (:amp #{b.c} (:vector (:amp #{b.c} (:variable b.c)))))
+       [[1 2 3] [4 5 6]]))

@@ -255,16 +255,17 @@
     (fail-state state)))
 
 (defn- do-guard
-  [mesg ns pred]
+  [ns pred mesg]
   (fn [state]
     (binding [*current-match* (fixup-state state)
 	      *ns* (find-ns ns)]
       (let [params (:params state)
 	    vars (keys params)
 	    rhss (map (fn [v] `(quote ~v)) (vals params))
-	    res (eval `(let [~@(interleave vars rhss)] ~pred))]
+	    bv (vec (interleave vars rhss))
+	    res (eval `(let ~bv ~pred))]
 	(if res
-	  (fail-guard state mesg res)
+	  (fail-guard state (eval `(let ~bv ~mesg)) res)
 	  state)))))
 
 (defn- do-push-params
@@ -342,8 +343,8 @@
 
 (defn- compile-guard
   [form]
-  (let [[_ mesg ns code] form]
-    [(do-guard mesg ns code)]))
+  (let [[_ ns code mesg] form]
+    [(do-guard ns code mesg)]))
 
 (defn- compile-pattern
   [form]

@@ -25,7 +25,19 @@
        '(:list (:amp #{a b} (:variable a) (:variable b))) (1 2 3 4) {:vars {'a (ms 1 [1 3]) 'b (ms 1 [2 4])}}
        '(:list (:amp #{a b} (:variable a) (:list (:amp #{b} (:variable b))))) (1 (2) 3 (4 5)) {:vars {'a (ms 1 [1 3]) 'b (ms 2 [[2] [4 5]])}}
        '(:and (:variable a) (:variable b)) 5 {:vars {'a (ms 0 5) 'b (ms 0 5)}}
-       '(:list (:variable a) (:pattern (:variable b) (:variable a))) (5) {:vars {'a (ms 0 5) 'b (ms 0 5)}}))
+       '(:list (:variable a) (:pattern (:variable b) (:variable a))) (5) {:vars {'a (ms 0 5) 'b (ms 0 5)}}
+
+       '(:list (:head (:variable a) (:pattern (:variable b) (:variable a))))
+       (5)
+       {:vars {'a (ms 0 5) 'b (ms 0 5)}}
+
+       '(:list (:pattern (:variable a) (:code user (+ 2 2))))
+       ()
+       {:vars {'a (ms 0 4)}}
+
+       '(:head (:variable a) (:guard user true ""))
+       5
+       {:good false}))
 
 (deftest test-order-progress
   (are [a b r] (= (#'pm/order-progress a b) r)

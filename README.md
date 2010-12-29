@@ -31,7 +31,7 @@ The list `(+pattern <pattern> <template>)` will match `<pattern>` against the
 result of filling in `<template>` with the current progress of the matching.
 This operation consumes no input.
 
-The list `(+guard <mesg> <code>)` will execute the form `<code>`. If `<code>`
+The list `(+guard <code> <mesg>)` will execute the form `<code>`. If `<code>`
 returns a true value, `<mesg>` will be reported as the type of error with the
 result being the form that caused the error. This operation consumes no input.
 
@@ -54,6 +54,18 @@ When the template is filled in, symbols that are not pattern variables are
 treated in one of two ways: a symbol having a top-level definition becomes
 namespace-qualified, and a symbol that does not is automatically gensym'd. All
 special forms that do not `#'resolve` are treated as literal symbols.
+
+## Syntax sugar
+
+`:! <form>` may be used to treat `<form>` as a literal value.
+
+`:& [<patterns> ...]` may be used as an abbreviation for
+`(+head <patterns> ...)`.
+
+`<var> :> <syntax-class>` may be used as an abbreviation for
+`(+var <var> <syntax-class>)`; if `<syntax-class>` is a list, the first element
+will name the syntax class and the remaining elements will be the syntax class's
+arguments.
 
 ## Additional functions/macros
 
@@ -109,15 +121,15 @@ will have the same effect.
 
 The above `for` example can be simplified by the use of `+or` and `+head` patterns:
     (defsyntax-rules for []
-      (for (+or (+head var :in coll)
-      	        (+head coll :as var))
+      (for (+or :& [var :in coll]
+      	        :& [coll :as var])
 	   body ...)
       (dorun (map (fn [var] body ...) coll)))
 
 A CL/Scheme-style `let` with the flat binding structure of Clojure's `let` can
 be defined as:
     (defsyntax-rules plet []
-      (plet [(+head var rhs) ...] body ...)
+      (plet [:& [var rhs] ...] body ...)
       ((fn [var ...] body ...) rhs ...))
 With this definition, `(plet [a 1 b 2] (+ a b))` will evaluate to `3`.
 
@@ -131,7 +143,7 @@ of the form `(let* [x205 (+ 2 3)] (clojure.core/* x205 x205))`.
 
 `defsyntax-rules` can also be defined in terms of itself:
     (defsyntax-rules defsyntax-rules [& forms &form]
-      (defsyntax-rules name [literals ...] (+& rules templates))
+      (defsyntax-rules name [literals ...] :& [rules templates] ...)
       (let [ar (make-apply-rules 'name '[literals ...] '(rules ...) '(templates ...))]
         (defmacro name
 	  [& forms]
@@ -142,7 +154,7 @@ ellipsis. With the combination of these three patterns, keyword arguments can be
 supported to some degree. Even more, the keywords do not need to have a uniform
 structure, that is they can take a varying number of arguments:
     (defsyntax-rules foo []
-      (foo (+or (+head :a a) (+head :b b c)) ...)
+      (foo (+or :& [:a a] :& [:b b c]) ...)
       '[[a ...] [[b c] ...]])
     
     (foo :a 1 :b 2 3 :a 4 :a 5 :b 6 7 :b 8 9 :a 10)
@@ -152,11 +164,11 @@ A better version of `plet` can be defined using syntax classes:
     (defsyntax-class binding-vector []
       "binding vector"
       []
-      [(+head var rhs) ...]
-      :fail-when "duplicate variable name" (check-duplicate (syntax (var ...))))
+      [:& [var rhs] ...]
+      :fail-when (check-duplicate (syntax (var ...))) "duplicate variable name"
     
     (defsyntax-rules plet []
-      (plet (+var bv binding-vector) body ...)
+      (plet bv :> binding-vector body ...)
       ((fn [bv.var ...] body ...) bv.rhs ...))
 The definition is this way because to `plet` it is considered a syntax error for
 multiple `var`s to have the same name. We can see how this plays out in action:

@@ -131,7 +131,7 @@
    ""
    []
    form
-   :fail-when descript (pred-check pred (syntax form)))
+   :fail-when (pred-check pred (syntax form)) descript)
 
  c-symbol "expected symbol" symbol?
  c-number "expected number" number?
