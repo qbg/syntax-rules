@@ -157,11 +157,10 @@
 (defn- do-rep
   [cmds]
   (fn [state]
-    (if (:good state)
-      (if (seq (:input state))
-	(recur (exe-commands cmds state))
-	state)
-      state)))
+    (let [new-state (exe-commands cmds state)]
+      (if (:good new-state)
+	(recur new-state)
+	state))))
 
 (defn- do-push-state
   []
