@@ -13,12 +13,6 @@
     :foo '(:literal :foo)
     {:a 1, :b 2} '(:literal {:a 1, :b 2})))
 
-(deftest test-parse-amp
-  (are [form res] (= (#'pp/parse-amp form {:literals #{} :ns *ns*}) res)
-    '(& a b) '(:amp #{a b} (:variable a) (:variable b))
-    '(& (a b)) '(:amp #{a b} (:list (:variable a) (:variable b)))
-    '(& a b ...) '(:amp #{a b} (:variable a) (:amp #{b} (:variable b)))))
-
 (declare foo)
 
 (deftest test-parse-list
@@ -28,7 +22,6 @@
 	 '(+literal a) '(:literal a)
 	 '(+describe "Foobar" 5) '(:describe "Foobar" (:literal 5))
 	 '(+describe "Foobar" a ...) '(:describe "Foobar" (:amp #{a} (:variable a)))
-	 '(+& a) '(:amp #{a} (:variable a))
 	 '(+var a foo) `(:varclass ~'a ~#'qbg.syntax-rules.test.pattern-parse/foo)
 	 '(+head a b) '(:head (:variable a) (:variable b))
 	 '(+or a b) '(:or (:variable a) (:variable b))
@@ -56,8 +49,8 @@
 
     '1 '1 '(:literal 1) '(:literal 1)
 
-    '(let [(+& var rhs)] body) '((fn [var ...] body) rhs ...)
-    '(:list (:variable let) (:vector (:amp #{var rhs} (:variable var) (:variable rhs))) (:variable body))
+    '(let [(+head var rhs) ...] body) '((fn [var ...] body) rhs ...)
+    '(:list (:variable let) (:vector (:amp #{var rhs} (:head (:variable var) (:variable rhs)))) (:variable body))
     '(:list (:list (:variable fn) (:vector (:amp #{var} (:variable var))) (:variable body)) (:amp #{rhs} (:variable rhs)))))
 
 (deftest test-build-syntax-class

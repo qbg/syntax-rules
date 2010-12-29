@@ -38,13 +38,6 @@
   [form options]
   `(:literal ~form))
 
-(defn- parse-amp
-  [form options]
-  (let [templates (rest form)
-        body (parse-seq templates options)
-        vars (apply pattern-vars body)]
-    `(:amp ~vars ~@body)))
-
 (defn- parse-ellipsis
   [pattern options]
   (let [pat (parse-pattern pattern options)
@@ -80,7 +73,6 @@
   [form options]
   (cond
    (= (first form) '+literal) `(:literal ~(second form))
-   (= (first form) '+&) (parse-amp form options)
    (= (first form) '+describe) (parse-describe form options)
    (= (first form) '+var) (parse-varclass form options)
    (= (first form) '+head) `(:head ~@(parse-seq (rest form) options))

@@ -21,7 +21,7 @@
   (let [v (get (:vars state) variable)]
     (if (= (:amp-depth v) 0)
       (:val v)
-      (let [mesg (format "Inconsistent ampersand depth: %s" variable)]
+      (let [mesg (format "Inconsistent ellipsis depth: %s" variable)]
 	(throw (IllegalStateException. mesg))))))
 
 (defn- fill-symbol
@@ -68,7 +68,7 @@
   (let [lengths (map #(count (:val (get (:vars state) %))) vars)]
     (if (apply = lengths)
       true
-      (throw (IllegalStateException. "Variables under ampersand do not have equal lengths")))))
+      (throw (IllegalStateException. "Variables under ellipsis have unequal lengths")))))
 
 (defn- demote-vars
   [vars state]
@@ -108,7 +108,7 @@
 (defn- fill-head
   [form state mappings]
   (let [forms (rest form)]
-    (map fill-form forms)))
+    (map #(fill-form % state mappings) forms)))
 
 (defn- fill-code
   [form state mappings]
@@ -184,7 +184,7 @@
 	    false
 	    (let [depths (map first parts)
 		  _ (if (not (apply = depths))
-		      (throw (IllegalStateException. "Inconsistent depth")))
+		      (throw (IllegalStateException. "Inconsistent ellipsis depth")))
 		  depth (first depths)]
 	      [(+ depth d) (map-depth second d init)]))))
       false)))

@@ -7,7 +7,7 @@
   (make-apply-rules
    'let
    []
-   '[(let [(+& var rhs)] body ...)]
+   '[(let [(+head var rhs) ...] body ...)]
    '[((fn [var ...] body ...) rhs ...)]))
 
 (deftest test-apply-rules

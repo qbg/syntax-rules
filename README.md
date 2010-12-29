@@ -16,10 +16,6 @@ Certain lists are treated specially when they appear in a pattern/template. The
 list `(+literal <item>)` will cause `<item>` to be treated as a literal during
 matching and filling in the template.
 
-The list `(+& <pattern> ...)` in like an ellipsis, except there can be multiple
-patterns under it, where each pattern is repeated in sequence (see the `plet`
-example in Examples).
-
 The list `(+describe <mesg> <pattern>)` will push `<mesg>` on the description
 stack during the matching of `<pattern>`. `<mesg>` should be a string that
 describes what type of expression `<pattern>` is going to match.
@@ -121,7 +117,7 @@ The above `for` example can be simplified by the use of `+or` and `+head` patter
 A CL/Scheme-style `let` with the flat binding structure of Clojure's `let` can
 be defined as:
     (defsyntax-rules plet []
-      (plet [(+& var rhs)] body ...)
+      (plet [(+head var rhs) ...] body ...)
       ((fn [var ...] body ...) rhs ...))
 With this definition, `(plet [a 1 b 2] (+ a b))` will evaluate to `3`.
 
