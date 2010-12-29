@@ -33,6 +33,10 @@
 				 {:vars {'c {:amp-depth 1 :val [4 5 6]}} :varm #{}}]}}
    :varm #{'b}})
 
+(deftest test-find-syms
+  (are [form res] (= (#'tf/find-symbols '{:vars {a {:amp-depth 0 :val 5}}} 'form) 'res)
+       (:list (:variable a) (:variable b)) #{b}))
+
 (deftest test-fill-template
   (are [form res] (= (fill-template form samp-match) res)
        '(:vector (:literal 1) (:literal 2) (:amp #{a} (:literal 3) (:variable a))) [1 2 3 1 3 2 3 3]

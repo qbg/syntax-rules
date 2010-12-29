@@ -128,22 +128,9 @@
     form state mappings))
 
 (defn- find-symbols
-  ([state]
-    #{})
-  ([state form]
-    (condp = (first form)
-	:variable (if (contains? (:vars state) (second form))
-		    #{(second form)}
-		    #{})
-	:list (apply find-symbols (rest form))
-	:vector (apply find-symbols (rest form))
-	:amp (apply find-symbols (rest (rest form)))
-	:literal #{}
-	:code #{}
-	:head (apply find-symbols (rest form))))
-  ([state form & forms]
-     (reduce into (find-symbols state form)
-	     (map #(find-symbols state %) forms))))
+  [state form]
+  (let [patvars (pp/pattern-vars form)]
+    (into #{} (remove (:vars state) patvars))))
 
 (defn- make-mappings
   [syms]
