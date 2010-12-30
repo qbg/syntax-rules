@@ -17,6 +17,7 @@
 	 :or (apply pattern-vars (rest form))
 	 :list (apply pattern-vars (rest form))
 	 :vector (apply pattern-vars (rest form))
+	 :options (second form)
 	 :amp (second form)))
   ([form & forms]
      (reduce into (pattern-vars form) (map pattern-vars forms))))
@@ -93,6 +94,13 @@
   (let [[_ code mesg] form]
     `(:guard ~(ns-name *ns*) ~code ~mesg)))
 
+(defn- parse-options
+  [form options]
+  (let [patterns (map #(parse-seq % options) (rest form))
+	patterns (map (fn [p] `(:head ~@p)) patterns)
+	vars (apply pattern-vars patterns)]
+    `(:options ~vars ~@patterns)))
+
 (defn- parse-list
   [form options]
   (cond
@@ -105,6 +113,7 @@
    (= (first form) '+pattern) (parse-pattern-form form options)
    (= (first form) '+guard) (parse-guard form)
    (= (first form) '+code) `(:code ~(ns-name (:ns options)) ~(second form))
+   (= (first form) '+options) (parse-options form options)
    :else (cons :list (parse-seq form options))))
 
 (defn- parse-vector

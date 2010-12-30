@@ -45,6 +45,13 @@ The list `(+code <code>)` will during the filling of the template be replaced by
 the value of the execution of `<code>`. Any nested `syntax` uses will be treated
 as separate templates, and so auto-gensyms will be different.
 
+The list `(+options [<patterns>+ ]+)` is like
+`(+or (+head <patterns>+)+) ...`, that is, the repetition of the `+or` of a
+sequence of head patterns except that pattern variables will have an ellipis
+depth one less than they would otherwise. Because it is an error for pattern
+variables to be bound more than one time, this operation will consume the right
+amount of input.
+
 When a macro defined defsyntax-rules encounters a syntax error (that is, when
 none of the rules match), all of the rules are examined to determine which one
 has matched the most of the form.  An error message is then generated from the

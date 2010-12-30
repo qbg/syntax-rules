@@ -27,7 +27,7 @@
   [vars v]
   (if (contains? vars v)
     (get vars v)
-    {:amp-depth 0 :val []}))
+    {:amp-depth 0 :val [var-marker]}))
 
 (defn- fail-state
   [state]
@@ -38,8 +38,11 @@
   (fn [state]
     (let [item (current-item state)
 	  v (lookup-var (:vars state) variable)
-	  v (update-in v [:val] conj item)]
-      (assoc-in state [:vars variable] v))))
+	  good? (= (peek (:val v)) var-marker)
+	  v (assoc v :val (conj (pop (:val v)) item))]
+      (if good?
+	(assoc-in state [:vars variable] v)
+	(fail-state state)))))
 
 (defn- do-literal
   [lit]
@@ -47,7 +50,9 @@
     (let [item (current-item state)]
       (if (= item lit)
 	state
-	(fail-state state)))))
+	(let [dstack (:dstack state)
+	      dstack (conj dstack [(format "expected %s" (str lit)) item])]
+	  (fail-state (assoc state :dstack dstack)))))))
 
 (defn- forward-progress
   [progress]
@@ -115,21 +120,26 @@
   [vs]
   (fn [state]
     (let [vars (:vars state)
+	  good? (every? #(= % var-marker)
+			(map (comp peek :val)
+			     (map #(lookup-var vars %) vs)))
 	  push-var (fn [vars v]
 		     (let [vm (lookup-var vars v)
 			   depth (inc (or (:depth vm) 0))]
 		       (assoc vars v
 			      {:depth depth
 			       :amp-depth (max (:amp-depth vm) depth)
-			       :val (conj (:val vm) [] var-marker)})))]
-      (assoc state :vars (reduce push-var vars vs)))))
+			       :val (conj (pop (:val vm)) [] var-marker)})))]
+      (if good?
+	(assoc state :vars (reduce push-var vars vs))
+	(fail-state state)))))
 
 (defn- pack-var
   [v]
   (if (= (peek v) var-marker)
     v
     (let [item (peek v)
-	  v (pop (pop v))
+	  v (pop v)
 	  coll (peek v)
 	  v (pop v)]
       (conj v (conj coll item) var-marker))))
@@ -141,8 +151,7 @@
 	  collect-var (fn [vars v]
 			(let [vm (vars v)
 			      vm (assoc vm
-				   :val (pack-var (:val vm))
-				   :depth (dec (:depth vm)))]
+				   :val (pack-var (:val vm)))]
 			  (assoc vars v vm)))]
       (assoc state :vars (reduce collect-var vars vs)))))
 
@@ -151,16 +160,22 @@
   (fn [state]
     (let [vars (:vars state)
 	  clean-coll (fn [v] (if (= (peek v) var-marker) (pop v) v))
-	  clean-var (fn [vars v] (update-in vars [v :val] clean-coll))]
+	  clean-var (fn [vars v]
+		      (update-in vars [v]
+				assoc
+				:val (clean-coll (:val (vars v)))
+				:depth (dec (:depth (vars v)))))]
       (assoc state :vars (reduce clean-var vars vs)))))
 
 (defn- do-rep
   [cmds]
   (fn [state]
-    (let [new-state (exe-commands cmds state)]
-      (if (:good new-state)
-	(recur new-state)
-	state))))
+    (if (seq (:input state))
+      (let [new-state (exe-commands cmds state)]
+	(if (and (:good new-state))
+	  (recur new-state)
+	  state))
+      state)))
 
 (defn- do-push-state
   []
@@ -317,6 +332,12 @@
 	pinstr (mapcat compile-pattern patterns)]
     [(do-push-vars vars) (do-rep (concat pinstr [(do-collect-vars vars)])) (do-clean-vars vars)]))
 
+(defn- compile-options
+  [form]
+  (let [[_ vars & patterns] form
+	pinstrs (map compile-pattern patterns)]
+    [(do-rep [(do-or pinstrs)])]))
+
 (defn- compile-head
   [form]
   (mapcat compile-pattern (rest form)))
@@ -351,6 +372,7 @@
        :variable compile-variable
        :literal compile-literal
        :amp compile-amp
+       :options compile-options
        :head compile-head
        :pattern compile-pattern-form
        :list compile-list
