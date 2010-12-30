@@ -16,9 +16,11 @@
 (declare foo)
 
 (deftest test-parse-seq
-  (are [form res] (= (#'pp/parse-seq 'form {:literals #{} :ns *ns*}) ['res])
-       (:! a) (:literal a)
-       (:& [a b c]) (:head (:variable a) (:variable b) (:variable c))))
+  (binding [*ns* (find-ns 'qbg.syntax-rules.test.pattern-parse)]
+    (are [form res] (= (#'pp/parse-seq 'form {:literals #{} :ns *ns*}) [res])
+	 (:! a) '(:literal a)
+	 (:& [a b c]) '(:head (:variable a) (:variable b) (:variable c))
+	 (a :> foo ...) `(:amp #{~'a} (:varclass ~'a ~#'foo)))))
 
 (deftest test-parse-list
   (binding [*ns* (find-ns 'qbg.syntax-rules.test.pattern-parse)]

@@ -41,9 +41,8 @@
 
 (defn- parse-ellipsis
   [pattern options]
-  (let [pat (parse-pattern pattern options)
-	vars (pattern-vars pat)]
-    `(:amp ~vars ~pat)))
+  (let [vars (pattern-vars pattern)]
+    `(:amp ~vars ~pattern)))
 
 (defn- parse-sugar-head
   [patterns options]
@@ -71,8 +70,10 @@
 		    (parse-sugar-varclass (first form) (nth form 2) options))
 	      (nthnext form 3))
        
-       (= (second form) '...)
-       (recur (conj res (parse-ellipsis (first form) options)) (nthnext form 2))
+       (= (first form) '...)
+       (recur (conj (pop res)
+		    (parse-ellipsis (peek res) options))
+	      (next form))
 
        :else
        (recur (conj res (parse-pattern (first form) options)) (next form)))
