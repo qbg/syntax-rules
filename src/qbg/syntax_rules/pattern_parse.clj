@@ -10,6 +10,7 @@
 	 :literal #{}
 	 :pattern (pattern-vars (second form))
 	 :describe (pattern-vars (nth form 2))
+	 :pdescribe #{}
 	 :guard #{}
 	 :code (second form)
 	 :head (apply pattern-vars (rest form))
@@ -130,6 +131,7 @@
   (cond
    (= (first form) '+literal) `(:literal ~(second form))
    (= (first form) '+describe) (parse-describe form options)
+   (= (first form) '+pdescribe) `(:pdescribe ~(second form))
    (= (first form) '+var) (parse-varclass form options)
    (= (first form) '+head) `(:head ~@(parse-seq (rest form) options))
    (= (first form) '+and) `(:and ~@(parse-seq (rest form) options))
@@ -140,6 +142,7 @@
 				   ~(ns-name (:ns options))
 				   ~(nth form 2))
    (= (first form) '+options) (parse-options form options)
+   (= (first form) '+?) `(:or (:head ~@(parse-seq (rest form) options)) (:head))
    :else (cons :list (parse-seq form options))))
 
 (defn- parse-vector

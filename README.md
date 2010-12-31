@@ -16,9 +16,14 @@ Certain lists are treated specially when they appear in a pattern/template. The
 list `(+literal <item>)` will cause `<item>` to be treated as a literal during
 matching and filling in the template.
 
-The list `(+describe <mesg> <pattern>)` will push `<mesg>` on the description
-stack during the matching of `<pattern>`. `<mesg>` should be a string that
-describes what type of expression `<pattern>` is going to match.
+The list `(+describe <mesg> <pattern>)` will cause `<mesg>` to be a description
+surrounding `<pattern>`. `<mesg>` should be a string tha describes what
+`<pattern>` should match.
+
+The list `(+pdescribe <mesg>)` will cause `<mesg>` to be a description of the
+rest of the current sequence. Its effects will be scoped by a description
+enacted by `+describe` if one exists. This is useful ... patterns as the
+semantics of ... ensure that matching never fails during its scope.
 
 The list `(+head <pattern> ...)` will match each `<pattern>` in turn in the
 current context. That is, `(1 (+head 2 3) 4)` and `(1 2 3 4)` are equivalent
@@ -54,10 +59,13 @@ depth one less than they would otherwise. Because it is an error for pattern
 variables to be bound more than one time, this operation will consume the right
 amount of input.
 
+The list `(+? <patterns>)` is equivalent to `(+or (+head <patterns>) (+head))`;
+this is useful as it makes `<patterns>` optional.
+
 When a macro defined defsyntax-rules encounters a syntax error (that is, when
 none of the rules match), all of the rules are examined to determine which one
 has matched the most of the form.  An error message is then generated from the
-message that was on the top of the describe stack when the matching failed.
+active description that is closest to the point of failure.
 
 When the template is filled in, symbols that are not pattern variables are
 treated in one of two ways: a symbol having a top-level definition becomes

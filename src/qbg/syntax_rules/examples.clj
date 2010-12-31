@@ -40,8 +40,7 @@
 (defsyntax-case ex-cond
   "See cond"
   []
-  (+describe "even number of clauses"
-	     (cond (+head pred expr) ...))
+  (cond (+pdescribe "even number of clauses") (+head pred expr) ...)
   (loop [preds (reverse (syntax (pred ...)))
 	 exprs (reverse (syntax (expr ...)))
 	 res nil]
@@ -77,7 +76,7 @@
   []
   (condp pred expr
     clauses :> condp-clause ...
-    (+or default (+head)))
+    (+? default))
   (let [pred-gs (gensym)
 	expr-gs (gensym)
 	pred (syntax pred)

@@ -108,6 +108,22 @@
       (assoc state
 	:dstack (conj (:dstack state) [mesg form])))))
 
+(defn- do-copy-describe
+  []
+  (fn [state]
+    (let [mesg (peek (:dstack state))
+	  dstack (conj (:dstack state) mesg)]
+      (assoc state :dstack dstack))))
+
+(defn- do-set-describe
+  [mesg]
+  (fn [state]
+    (let [mesg (format "expected %s" mesg)
+	  input (:input state)
+	  dstack (:dstack state)
+	  dstack (conj (pop dstack) [mesg input])]
+      (assoc state :dstack dstack))))
+
 (defn- do-pop-describe
   []
   (fn [state]
@@ -305,16 +321,16 @@
 (defn- compile-list
   [form]
   (concat
-   [(do-in-progress) (do-nest seq?)]
+   [(do-in-progress) (do-copy-describe) (do-nest seq?)]
    (mapcat compile-pattern (rest form))
-   [(do-eos) (move-forward) (do-out-progress)]))
+   [(do-eos) (do-pop-describe) (move-forward) (do-out-progress)]))
 
 (defn- compile-vector
   [form]
   (concat
-   [(do-in-progress) (do-nest vector?)]
+   [(do-in-progress) (do-copy-describe) (do-nest vector?)]
    (mapcat compile-pattern (rest form))
-   [(do-eos) (move-forward) (do-out-progress)]))
+   [(do-eos) (do-pop-describe) (move-forward) (do-out-progress)]))
 
 (defn- compile-describe
   [form]
@@ -322,6 +338,10 @@
    [(do-push-describe (second form))]
    (compile-pattern (nth form 2))
    [(do-pop-describe)]))
+
+(defn- compile-pdescribe
+  [form]
+  [(do-set-describe (second form))])
 
 (defn- compile-amp
   [form]
@@ -376,6 +396,7 @@
        :list compile-list
        :vector compile-vector
        :describe compile-describe
+       :pdescribe compile-pdescribe
        :and compile-and
        :or compile-or
        :guard compile-guard
