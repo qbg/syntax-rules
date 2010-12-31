@@ -2,6 +2,8 @@
   (:require
    [qbg.syntax-rules.pattern-parse :as pp]))
 
+(def *current-match*)
+
 (declare fill-form fill-amp fill-head)
 
 (defn- fill-literal
@@ -16,13 +18,62 @@
   [sym]
   (map symbol (.split (str sym) "\\.")))
 
+(defn- get-part
+  [coll choices]
+  (if-let [[choice & choices] (seq choices)]
+    (recur (nth coll choice) choices)
+    coll))
+
+(defn- get-variable-part
+  [state parts choices]
+  (let [vm (get (:vars state) (first parts))
+	ad (:amp-depth vm)]
+    (let [[first-choices next-choices] (split-at ad choices)
+	  next-vm (get-part (:val vm) first-choices)]
+      (cond
+       (empty? (next parts))
+       next-vm
+       
+       (< (count choices) ad)
+       next-vm
+
+       (> (count choices) ad)
+       (recur next-vm (next parts) next-choices)
+
+       :else (get (:vars next-vm) (second parts))))))
+
+(defn contains-var?
+  [state var]
+  (if (multisegment? var)
+    (let [parts (split-symbol var)
+	  part (get-variable-part state (butlast parts) (:fill-stack state))]
+      (contains? (:vars part) (last parts)))
+    (contains? (:vars state) var)))
+
+(defn- get-var-value
+  [state fill-stack parts]
+  (let [[v & parts] parts
+	vm (get (:vars state) v)
+	depth (:amp-depth vm)
+	[fs next-fill-stack] (split-at depth fill-stack)
+	part (get-part (:val vm) fs)]
+    (if (empty? parts)
+      (if (not= depth (count fill-stack))
+	(throw (IllegalArgumentException. "Inconsistant ellipsis depth"))
+	(if (contains? (:varm state) v)
+	  (:mega part)
+	  part))
+      (if (contains? (:varm state) v)
+	(recur part next-fill-stack parts)
+	(throw (IllegalArgumentException. "No such pattern variable"))))))
+
 (defn- fill-simple-variable
   [variable state]
-  (let [v (get (:vars state) variable)]
-    (if (= (:amp-depth v) 0)
-      (:val v)
-      (let [mesg (format "Inconsistent ellipsis depth: %s" variable)]
-	(throw (IllegalStateException. mesg))))))
+  (let [fill-stack (:fill-stack state)
+	parts (split-symbol variable)]
+    (if (contains? (:vars state) (first parts))
+      (get-var-value state fill-stack parts)
+      (throw (IllegalArgumentException. "No such pattern variable")))))
 
 (defn- fill-symbol
   [sym mappings]
@@ -34,9 +85,9 @@
 (defn- fill-variable
   [form state mappings]
   (let [sym (second form)]
-    (if (not (contains? (:vars state) sym))
-      (fill-symbol sym mappings)
-      (fill-simple-variable sym state))))
+    (if (or (multisegment? sym) (contains? (:vars state) sym))
+      (fill-simple-variable sym state)
+      (fill-symbol sym mappings))))
 
 (defn- fill-seq
   [form state mappings]
@@ -60,49 +111,31 @@
   (fill-seq (rest form) state mappings))
 
 (defn- get-var-length
-  [vars state]
-  (count (:val (get (:vars state) (first vars)))))
+  [state v]
+  (let [fs (:fill-stack state)
+	parts (split-symbol v)
+	vp (get-variable-part state parts fs)]
+    (if (vector? vp)
+      (count vp)
+      (count (:val vp)))))
 
-(defn- assert-vars
+(defn- get-vars-length
   [vars state]
-  (let [lengths (map #(count (:val (get (:vars state) %))) vars)]
+  (let [lengths (map #(get-var-length state %) vars)]
     (if (apply = lengths)
-      true
+      (first lengths)
       (throw (IllegalStateException. "Variables under ellipsis have unequal lengths")))))
-
-(defn- demote-vars
-  [vars state]
-  (let [vstate (:vars state)
-	vstate (reduce (fn [state v]
-			 (let [sym (get state v)
-			       sym (assoc sym
-				     :amp-depth (dec (:amp-depth sym))
-				     :val (first (:val sym)))]
-			   (assoc state v sym)))
-		       vstate vars)]
-    (assoc state :vars vstate)))
-
-(defn- drop-vars
-  [vars state]
-  (let [vstate (:vars state)
-	vstate (reduce (fn [state v]
-			 (let [sym (get state v)
-			       sym (assoc sym :val (rest (:val sym)))]
-			   (assoc state v sym)))
-		       vstate vars)]
-    (assoc state :vars vstate)))
 
 (defn- fill-amp
   [form state mappings]
   (let [[_ vars & forms] form
-	length (get-var-length vars state)]
-    (assert-vars vars state)
-    (loop [res [], n 0, state state]
+	length (get-vars-length vars state)
+	fs (:fill-stack state)]
+    (loop [res [], n 0]
       (if (< n length)
-        (recur
-          (conj res (fill-seq forms (demote-vars vars state) mappings))
-          (inc n)
-          (drop-vars vars state))
+	(let [next-fs (conj fs n)
+	      state (assoc state :fill-stack next-fs)]
+	  (recur (conj res (fill-seq forms state mappings)) (inc n)))
         (apply concat res)))))
 
 (defn- fill-head
@@ -112,8 +145,9 @@
 
 (defn- fill-code
   [form state mappings]
-  (let [[_ ns code] form]
-    (binding [*ns* (find-ns ns)]
+  (let [[_ _ ns code] form]
+    (binding [*ns* (find-ns ns)
+	      *current-match* state]
       (eval code))))
 
 (defn- fill-form
@@ -129,8 +163,9 @@
 
 (defn- find-symbols
   [state form]
-  (let [patvars (pp/pattern-vars form)]
-    (into #{} (remove (:vars state) patvars))))
+  (let [patvars (pp/pattern-vars form)
+	clean #(or (get (:vars state) %) (multisegment? %))]
+    (into #{} (remove clean patvars))))
 
 (defn- make-mappings
   [syms]
@@ -141,65 +176,10 @@
     (reduce #(assoc %1 %2 %2)
 	    mappings '[quote def var recur do if throw try monitor-enter
 		       monitor-exit . new set!])))
-
-(defn- map-depth
-  [f depth coll]
-  (if (= depth 0)
-    (f coll)
-    (vec (map #(map-depth f (dec depth) %) coll))))
-
-(defn- flatten-n
-  [n coll]
-  (if (= n 0)
-    [coll]
-    (mapcat #(flatten-n (dec n) %) coll)))
-
-(defn- get-nested-val
-  [state var-parts]
-  (let [v (first var-parts)
-	vm ((:vars state) v)
-	d (:amp-depth vm)]
-    (if vm
-      (if (empty? (next var-parts))
-	(if (contains? (:varm state) v)
-	  [d (map-depth :mega d (:val vm))]
-	  [d (:val vm)])
-	(let [vps (next var-parts)
-	      init (map-depth #(get-nested-val % vps) d (:val vm))
-	      parts (flatten-n d init)]
-	  (if (some false? parts)
-	    false
-	    (let [depths (map first parts)
-		  _ (if (not (apply = depths))
-		      (throw (IllegalStateException. "Inconsistent ellipsis depth")))
-		  depth (first depths)]
-	      [(+ depth d) (map-depth second d init)]))))
-      false)))
-
-(defn- create-nested-var
-  [state sym]
-  (let [var-parts (split-symbol sym)
-	nv (get-nested-val state var-parts)]
-    (if nv
-      (let [[d val] nv]
-	[[sym {:amp-depth d :val val}]])
-      [])))
-
-(defn- add-nested-vars
-  [vars state]
-  (let [new-vars (mapcat #(create-nested-var state %) vars)]
-    (assoc state
-      :vars (into {} new-vars)
-      :varm #{})))
-
-(defn- compact-state
-  [state form]
-  (let [vars (pp/pattern-vars form)]
-    (add-nested-vars vars state)))
   
 (defn fill-template
   [form state]
-  (let [state (compact-state state form)
+  (let [state (assoc state :fill-stack (or (:fill-stack state) []))
 	syms (find-symbols state form)
 	mappings (make-mappings syms)]
     (fill-form form state mappings)))

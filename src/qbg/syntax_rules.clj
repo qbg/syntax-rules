@@ -29,7 +29,7 @@
      (let [literals (set literals)
 	   options {:literals literals :ns *ns*}
 	   template (pp/parse-pattern template options)
-	   res (tf/fill-template template pm/*current-match*)]
+	   res (tf/fill-template template tf/*current-match*)]
        res)))
 
 (defmacro syntax
@@ -43,23 +43,19 @@
 (defn absent?
   "Return true if variable was not bound in the enclosing match."
   [variable]
-  (let [full-name (map symbol (.split (str variable) "\\."))]
-    (loop [name full-name, match pm/*current-match*]
-      (if (empty? (next name))
-	(not (contains? (:vars match) (first name)))
-	(recur (next name) (get (:varm match) (first name)))))))
+  (not (tf/contains-var? tf/*current-match* variable)))
 
 (defn make-apply-rules 
   [name literals rules templates]
   (let [ns *ns*
-	rule-templates (map #(pp/build-rule-template %1 %2 literals ns)
-			    rules templates)
+	rule-templates (doall (map #(pp/build-rule-template %1 %2 literals ns)
+				   rules templates))
 	file *file*]
     (fn [form]
       (let [results (map (partial perform-match form) rule-templates)
 	    line (:line (meta form))]
 	(if-let [m (first (filter :good results))]
-	  (binding [pm/*current-match* m]
+	  (binding [tf/*current-match* m]
 	    (tf/fill-template (:template m) m))
 	  (throw-match-error name results line file))))))
 
@@ -72,7 +68,7 @@
       (let [results (map (partial perform-match form) rt)
 	    line (:line (meta form))]
 	(if-let [m (first (filter :good results))]
-	  (binding [pm/*current-match* m]
+	  (binding [tf/*current-match* m]
 	    ((:template m)))
 	  (throw-match-error name results line file))))))
 

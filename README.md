@@ -41,9 +41,11 @@ named by `<class>` with `<args>` as arguments matches. A pattern variable named
 `foo` that is defined in the syntax class can be accessed by `<name>.foo`. See
 `defsyntax-class` for defining syntax classes.
 
-The list `(+code <code>)` will during the filling of the template be replaced by
-the value of the execution of `<code>`. Any nested `syntax` uses will be treated
-as separate templates, and so auto-gensyms will be different.
+The list `(+code <vars> <code>)` will during the filling of the template be
+replaced by the value of the execution of `<code>`. Any nested `syntax` uses
+will be treated as separate templates, and so auto-gensyms will be different.
+`<vars>` is a vector of pattern variables that will be used during the dynamic
+extent of `<code>`.
 
 The list `(+options [<patterns>+ ]+)` is like
 `(+or (+head <patterns>+)+) ...`, that is, the repetition of the `+or` of a

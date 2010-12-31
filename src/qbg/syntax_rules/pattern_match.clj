@@ -1,8 +1,6 @@
 (ns qbg.syntax-rules.pattern-match
   (:require [qbg.syntax-rules.template-fill :as tf]))
 
-(def *current-match*)
-
 (declare exe-commands compile-pattern fixup-state)
 
 (def var-marker (Object.))
@@ -248,7 +246,7 @@
 (defn- dirty-fill
   [template state]
   (let [state (fixup-state state)]
-    (binding [*current-match* state]
+    (binding [tf/*current-match* state]
       (tf/fill-template template state)))) 
 
 (defn- do-pattern
@@ -271,7 +269,7 @@
 (defn- do-guard
   [ns pred mesg]
   (fn [state]
-    (binding [*current-match* (fixup-state state)
+    (binding [tf/*current-match* (fixup-state state)
 	      *ns* (find-ns ns)]
       (let [params (:params state)
 	    vars (keys params)

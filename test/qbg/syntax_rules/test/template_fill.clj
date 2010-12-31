@@ -14,7 +14,11 @@
     '(:variable +) 'clojure.core/+))
 
 (deftest test-fill-variable
-  (let [s {:vars {'a {:amp-depth 0 :val 5} 'b.c {:amp-depth 0 :val 6}}}]
+  (let [s {:vars {'a {:amp-depth 0 :val 5}
+		  'b {:amp-depth 0 :val {:vars {'c {:amp-depth 0 :val 6}}
+					 :varm #{}}}}
+	   :varm #{'b}
+	   :fill-stack []}]
     (are [form res] (= (#'tf/fill-variable form s {}) res)
 	 '(:variable a) 5
 	 '(:variable b.c) 6)))
@@ -24,7 +28,7 @@
        '((:variable b) (:list (:variable a)) (:vector (:variable a))) '(c (5) [5])))
 
 (deftest test-fill-amp
-  (are [form res] (= (#'tf/fill-amp form {:vars {'a {:amp-depth 1 :val [1 2 3]}}} {'b 'c}) res)
+  (are [form res] (= (#'tf/fill-amp form {:vars {'a {:amp-depth 1 :val [1 2 3]}} :fill-stack []} {'b 'c}) res)
     '(:amp #{a} (:variable a) (:variable b)) '(1 c 2 c 3 c)))
 
 (def samp-match
@@ -43,7 +47,7 @@
        '(:variable def) 'def
        '(:variable recur) 'recur
        '(:vector (:amp #{a} (:variable a)) (:amp #{a} (:variable a))) [1 2 3 1 2 3]
-       '(:code user (+ 2 2)) 4
+       '(:code #{} user (+ 2 2)) 4
        
        '(:vector (:amp #{b.c} (:vector (:amp #{b.c} (:variable b.c)))))
        [[1 2 3] [4 5 6]]))

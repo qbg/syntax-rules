@@ -31,7 +31,7 @@
        (5)
        {:vars {'a (ms 0 5) 'b (ms 0 5)}}
 
-       '(:list (:pattern (:variable a) (:code user (+ 2 2))))
+       '(:list (:pattern (:variable a) (:code #{} user (+ 2 2))))
        ()
        {:vars {'a (ms 0 4)}}
 
