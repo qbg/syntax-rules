@@ -74,17 +74,19 @@
 
 (defmacro defsyntax-rules
   "Define a macro that uses the rule-template pairs to expand all invokations"
-  [name literals & rt-pairs]
+  [name docstring literals & rt-pairs]
   (assert (vector? literals))
   (let [rules (take-nth 2 rt-pairs)
         templates (take-nth 2 (rest rt-pairs))]
     `(let [ar# (make-apply-rules '~name '~literals '~rules '~templates)]
        (defmacro ~name
+	 ~docstring
+	 {:arglists '~rules}
          [& ~'forms]
          (ar# ~'&form)))))
 
 (defmacro defsyntax-case
-  [name literals & rt-pairs]
+  [name docstring literals & rt-pairs]
   (assert (vector? literals))
   (let [rules (take-nth 2 rt-pairs)
 	thunks (take-nth 2 (rest rt-pairs))
@@ -92,6 +94,8 @@
 	thunks (vec (map thunkify thunks))]
     `(let [ac# (make-apply-cases '~name '~literals '~rules ~thunks)]
        (defmacro ~name
+	 ~docstring
+	 {:arglists '~rules}
 	 [& ~'forms]
 	 (ac# ~'&form)))))
 

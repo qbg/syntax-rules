@@ -8,9 +8,9 @@ facilities.
 ## Usage
 
 Macros are defined using `#'qbg.syntax-rules/defsyntax-rules`. A defsyntax-rules
-form is of the form `(defsyntax-rules name literals rt+)`, where `rt` is a rule-
-template pair (see Examples), and `literals` is a vector of symbols to be treated
-as literals in the template.
+form is of the form `(defsyntax-rules name docstring literals rt+)`, where `rt`
+is a rule-template pair (see Examples), and `literals` is a vector of symbols to
+be treated as literals in the template.
 
 Certain lists are treated specially when they appear in a pattern/template. The
 list `(+literal <item>)` will cause `<item>` to be treated as a literal during
@@ -112,7 +112,9 @@ syntax classes for symbols, numbers, keywords, maps, sets, and strings.
 ## Examples
 
 A `while` macro can be defined as:
-    (defsyntax-rules while []
+    (defsyntax-rules while
+      "Repeatedly execute body until condition is false"
+      []
       (while condition body ...)
       (loop []
         (when condition
@@ -120,7 +122,9 @@ A `while` macro can be defined as:
 	  (recur))))
 
 A for-each-style `for` macro that supports multiple syntaxes can be defined as:
-    (defsyntax-rules for []
+    (defsyntax-rules for
+      "for-each style for loop"
+      []
       (for var :in coll body ...)
       (dorun (map (fn [var] body ...) coll))
       (for coll :as var body ...)
@@ -129,7 +133,9 @@ Here `(for x :in [1 2 3] (println x))` and `(for [1 2 3] :as x (println x))`
 will have the same effect.
 
 The above `for` example can be simplified by the use of `+or` and `+head` patterns:
-    (defsyntax-rules for []
+    (defsyntax-rules for
+      "for-each style for loop"
+      []
       (for (+or :& [var :in coll]
       	        :& [coll :as var])
 	   body ...)
@@ -137,32 +143,30 @@ The above `for` example can be simplified by the use of `+or` and `+head` patter
 
 A CL/Scheme-style `let` with the flat binding structure of Clojure's `let` can
 be defined as:
-    (defsyntax-rules plet []
+    (defsyntax-rules plet
+      "Scheme-style let"
+      []
       (plet [:& [var rhs] ...] body ...)
       ((fn [var ...] body ...) rhs ...))
 With this definition, `(plet [a 1 b 2] (+ a b))` will evaluate to `3`.
 
 A squaring macro can be defined as:
-    (defsyntax-rules square []
+    (defsyntax-rules square
+      "Square n"
+      []
       (square n)
       (let [x n]
         (* x x)))
 Because of the auto-gensym, `(square (+ 2 3))` will macroexpand into something
 of the form `(let* [x205 (+ 2 3)] (clojure.core/* x205 x205))`.
 
-`defsyntax-rules` can also be defined in terms of itself:
-    (defsyntax-rules defsyntax-rules [& forms &form]
-      (defsyntax-rules name [literals ...] :& [rules templates] ...)
-      (let [ar (make-apply-rules 'name '[literals ...] '(rules ...) '(templates ...))]
-        (defmacro name
-	  [& forms]
-	  (ar &form))))
-
 `+or` and `+head` patterns are a powerful tool when combined with the
 ellipsis. With the combination of these three patterns, keyword arguments can be
 supported to some degree. Even more, the keywords do not need to have a uniform
 structure, that is they can take a varying number of arguments:
-    (defsyntax-rules foo []
+    (defsyntax-rules foo
+      "An interesting example"
+      []
       (foo (+or :& [:a a] :& [:b b c]) ...)
       '[[a ...] [[b c] ...]])
     
@@ -173,10 +177,12 @@ A better version of `plet` can be defined using syntax classes:
     (defsyntax-class binding-vector []
       "binding vector"
       []
-      [:& [var rhs] ...]
-      :fail-when (check-duplicate (syntax (var ...))) "duplicate variable name"
+      [:& [var :> c-symbol rhs] ...]
+      :fail-when (check-duplicate (syntax (var ...))) "duplicate variable name")
     
-    (defsyntax-rules plet []
+    (defsyntax-rules plet
+      "Scheme-style let"
+      []
       (plet bv :> binding-vector body ...)
       ((fn [bv.var ...] body ...) bv.rhs ...))
 The definition is this way because to `plet` it is considered a syntax error for
@@ -193,7 +199,9 @@ As seen, the use of syntax classes provide a sharper error message than the
 first definition.
 
 We can also define macros using the `syntax-case`-based interface:
-    (defsyntax-case adder []
+    (defsyntax-case adder
+      "Add two numbers together"
+      []
       (adder a b)
       `(+ ~(syntax a) ~(syntax b)))
     
@@ -202,9 +210,8 @@ We can also define macros using the `syntax-case`-based interface:
 
 ## Limitations
 
-There is currently no way to give a macro a docstring.
-
-There is currently no way to give a meaningful argument list to a macro.
+The arglists of a macro defined by defsyntax-rules/defsyntax-case is the list
+of rules.
 
 ## License
 

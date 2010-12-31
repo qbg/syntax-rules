@@ -2,7 +2,9 @@
   (:use qbg.syntax-rules)
   (:import [java.io StringWriter]))
 
-(defsyntax-rules ex-dotimes []
+(defsyntax-rules ex-dotimes
+  "Same as (doseq [i (range upper)] body)"
+  []
   (dotimes [i :> c-symbol upper] body ...)
   (let [n (long upper)]
     (loop [i 0]
@@ -10,26 +12,34 @@
 	body ...
 	(recur (unchecked-inc i))))))
 
-(defsyntax-rules ex--> []
+(defsyntax-rules ex-->
+  "Thread form through a number of other expressions"
+  []
   (-> form) form
   (-> form (f args ...)) (f form args ...)
   (-> form f) (f form)
   (-> form f1 fs ...) (-> (-> form f1) fs ...))
 
-(defsyntax-rules ex-with-out-str []
+(defsyntax-rules ex-with-out-str
+  "Return a string of all output sent to *out* during the execution of body"
+  []
   (with-out-str body ...)
   (let [s (StringWriter.)]
     (binding [*out* s]
       body ...
       (str s))))
 
-(defsyntax-rules ex-defonce []
+(defsyntax-rules ex-defonce
+  "Define name to be expr only if name does not have a toplevel definition"
+  []
   (defonce name :> c-symbol expr)
   (let [v (def name)]
     (when-not (.hasRoot v)
       (def name expr))))
 
-(defsyntax-case ex-cond []
+(defsyntax-case ex-cond
+  "See cond"
+  []
   (+describe "even number of clauses"
 	     (cond (+head pred expr) ...))
   (loop [preds (reverse (syntax (pred ...)))
@@ -42,11 +52,15 @@
 		~res))
       res)))
 
-(defsyntax-rules ex-pvalues []
+(defsyntax-rules ex-pvalues
+  "Evaluate expr in parallel and return the results as a sequence"
+  []
   (pvalues expr ...)
   (pcalls (fn [] expr) ...))
 
-(defsyntax-rules ex-lazy-cat []
+(defsyntax-rules ex-lazy-cat
+  "See lazy-cat"
+  []
   (lazy-cat seqs ...)
   (concat (lazy-seq seqs) ...))
 
@@ -58,7 +72,9 @@
   (+head test-expr result)
   :with type 1)
 
-(defsyntax-case ex-condp []
+(defsyntax-case ex-condp
+  "See condp"
+  []
   (condp pred expr
     clauses :> condp-clause ...
     (+or default (+head)))
