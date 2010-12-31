@@ -28,8 +28,14 @@
        '((:variable b) (:list (:variable a)) (:vector (:variable a))) '(c (5) [5])))
 
 (deftest test-fill-amp
-  (are [form res] (= (#'tf/fill-amp form {:vars {'a {:amp-depth 1 :val [1 2 3]}} :fill-stack []} {'b 'c}) res)
-    '(:amp #{a} (:variable a) (:variable b)) '(1 c 2 c 3 c)))
+  (are [form res] (= (#'tf/fill-amp form {:vars {'a {:amp-depth 1 :val [1 2 3]}}
+					  :fill-stack []}
+				    {'b 'c}) res)
+       '(:amp #{a} (:variable a) (:variable b))
+       '(1 c 2 c 3 c)
+
+       '(:amp #{a fn} (:list (:variable fn) (:vector) (:variable a)))
+       '((clojure.core/fn [] 1) (clojure.core/fn [] 2) (clojure.core/fn [] 3))))
 
 (def samp-match
   {:vars {'a {:amp-depth 1 :val [1 2 3]}

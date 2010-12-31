@@ -82,10 +82,15 @@
     ;; Hack
     (symbol (subs (str (resolve sym)) 2))))
 
+(defn- actually-variable?
+  [state sym]
+  (or (multisegment? sym)
+      (contains? (:vars state) sym)))
+
 (defn- fill-variable
   [form state mappings]
   (let [sym (second form)]
-    (if (or (multisegment? sym) (contains? (:vars state) sym))
+    (if (actually-variable? state sym)
       (fill-simple-variable sym state)
       (fill-symbol sym mappings))))
 
@@ -121,7 +126,8 @@
 
 (defn- get-vars-length
   [vars state]
-  (let [lengths (map #(get-var-length state %) vars)]
+  (let [vars (filter #(actually-variable? state %) vars)
+	lengths (map #(get-var-length state %) vars)]
     (if (apply = lengths)
       (first lengths)
       (throw (IllegalStateException. "Variables under ellipsis have unequal lengths")))))
@@ -175,7 +181,7 @@
         mappings (zipmap needed (map gensym needed))]
     (reduce #(assoc %1 %2 %2)
 	    mappings '[quote def var recur do if throw try monitor-enter
-		       monitor-exit . new set!])))
+		       monitor-exit . new set! case* fn* let*])))
   
 (defn fill-template
   [form state]

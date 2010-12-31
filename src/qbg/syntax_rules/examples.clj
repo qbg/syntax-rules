@@ -22,3 +22,26 @@
     (binding [*out* s]
       body ...
       (str s))))
+
+(defsyntax-rules ex-defonce []
+  (defonce name :> c-symbol expr)
+  (let [v (def name)]
+    (when-not (.hasRoot v)
+      (def name expr))))
+
+(defsyntax-case ex-cond []
+  (+describe "even number of clauses"
+	     (cond (+head pred expr) ...))
+  (loop [preds (reverse (syntax (pred ...)))
+	 exprs (reverse (syntax (expr ...)))
+	 res nil]
+    (if (seq preds)
+      (recur (next preds) (next exprs)
+	     `(if ~(first preds)
+		~(first exprs)
+		~res))
+      res)))
+
+(defsyntax-rules ex-pvalues []
+  (pvalues expr ...)
+  (pcalls (fn [] expr) ...))
