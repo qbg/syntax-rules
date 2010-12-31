@@ -24,11 +24,34 @@
 
 (declare parse-pattern parse-seq)
 
+(defn- method-form?
+  [sym]
+  (= \. (first (str sym))))
+
+(defn- ctor-form?
+  [sym]
+  (= \. (last (str sym))))
+
+(defn- resolve-ctor
+  [sym ns]
+  (let [chop-end (fn [s] (subs s 0 (dec (count s))))
+	class-sym (symbol (chop-end (str sym)))
+	full-class (ns-resolve ns class-sym)]
+    (symbol (str (.getName full-class) "."))))
+
 (defn- parse-symbol
   [form options]
-  (if (contains? (:literals options) form)
-    `(:literal ~form)
-    `(:variable ~form)))
+  (cond
+   (contains? (:literals options) form)
+   `(:literal ~form)
+
+   (method-form? form)
+   `(:literal ~form)
+
+   (ctor-form? form)
+   `(:literal ~(resolve-ctor form (:ns options)))
+
+   :else `(:variable ~form)))
 
 (defn- parse-varclass
   [form options]

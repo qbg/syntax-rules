@@ -5,7 +5,9 @@
 
 (deftest test-parse-symbol
   (are [form res] (= (#'pp/parse-symbol form {:literals #{} :ns *ns*}) res)
-       'dolists '(:variable dolists)))
+       'dolists '(:variable dolists)
+       '.getName '(:literal .getName)
+       'Exception. '(:literal java.lang.Exception.)))
 
 (deftest test-parse-literal
   (are [form res] (= (#'pp/parse-literal form {:literals #{} :ns *ns*}) res)
