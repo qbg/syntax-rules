@@ -45,3 +45,40 @@
 (defsyntax-rules ex-pvalues []
   (pvalues expr ...)
   (pcalls (fn [] expr) ...))
+
+(defsyntax-rules ex-lazy-cat []
+  (lazy-cat seqs ...)
+  (concat (lazy-seq seqs) ...))
+
+(defsyntax-class condp-clause []
+  "condp clause"
+  []
+  (+head test-expr :>> result)
+  :with type 2
+  (+head test-expr result)
+  :with type 1)
+
+(defsyntax-case ex-condp []
+  (condp pred expr
+    clauses :> condp-clause ...
+    (+or default (+head)))
+  (let [pred-gs (gensym)
+	expr-gs (gensym)
+	pred (syntax pred)
+	expr (syntax expr)
+	clauses (reverse (syntax ((clauses.test-expr
+				   clauses.type
+				   clauses.result) ...)))
+	res (if (absent? 'default)
+	      `(throw (IllegalArgumentException. (str "No matching clause: " ~expr-gs)))
+	      (syntax default))]
+    (loop [clauses clauses, res res]
+      (if-let [[[texpr type result] & clauses] (seq clauses)]
+	(recur clauses
+	       (if (= type 1)
+		 `(if (~pred-gs ~expr-gs ~texpr) ~result ~res)
+		 `(let [pred-val# (~pred-gs ~expr-gs ~texpr)]
+		    (if pred-val# (~result pred-val#) ~res))))
+	`(let [~pred-gs ~pred
+	       ~expr-gs ~expr]
+	   ~res)))))
