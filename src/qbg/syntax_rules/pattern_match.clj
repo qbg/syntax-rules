@@ -81,6 +81,13 @@
 	:input (next input))
       (fail-state state))))
 
+(defn- do-assert-end
+  []
+  (fn [state]
+    (if (empty? (:input state))
+      state
+      (fail-state state))))
+
 (defn- do-eos
   []
   (fn [state]
@@ -362,7 +369,7 @@
 
 (defn- compile-only
   [form]
-  (concat (mapcat compile-pattern (rest form)) [(do-eos)]))
+  (concat (mapcat compile-pattern (rest form)) [(do-assert-end)]))
 
 (defn- compile-varclass
   [form]
