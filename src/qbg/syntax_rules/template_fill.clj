@@ -4,7 +4,7 @@
 
 (def *current-match*)
 
-(declare fill-form fill-amp fill-head)
+(declare fill-form fill-amp fill-code)
 
 (defn- fill-literal
   [form state mappings]
@@ -94,6 +94,11 @@
       (fill-simple-variable sym state)
       (fill-symbol sym mappings))))
 
+(defn- fill-head
+  [form state mappings]
+  (let [forms (rest form)]
+    (map #(fill-form % state mappings) forms)))
+
 (defn- fill-seq
   [form state mappings]
   (loop [res [], form form]
@@ -103,6 +108,8 @@
        (recur (into res (fill-amp (first form) state mappings)) (next form))
        (= (first (first form)) :head)
        (recur (into res (fill-head (first form) state mappings)) (next form))
+       (= (first (first form)) :scode)
+       (recur (into res (fill-code (first form) state mappings)) (next form))
        :else
        (recur (conj res (fill-form (first form) state mappings)) (next form)))
       res)))
@@ -143,11 +150,6 @@
 	      state (assoc state :fill-stack next-fs)]
 	  (recur (conj res (fill-seq forms state mappings)) (inc n)))
         (apply concat res)))))
-
-(defn- fill-head
-  [form state mappings]
-  (let [forms (rest form)]
-    (map #(fill-form % state mappings) forms)))
 
 (defn- fill-code
   [form state mappings]

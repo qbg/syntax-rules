@@ -52,6 +52,9 @@ will be treated as separate templates, and so auto-gensyms will be different.
 `<vars>` is a vector of pattern variables that will be used during the dynamic
 extent of `<code>`.
 
+The list `(+scode <vars> <code>)` is just like `+code` except that the result
+will be spliced into the output.
+
 The list `(+options [<patterns>+ ]+)` is like
 `(+or (+head <patterns>+)+) ...`, that is, the repetition of the `+or` of a
 sequence of head patterns except that pattern variables will have an ellipis
