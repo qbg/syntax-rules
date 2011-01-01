@@ -38,7 +38,8 @@
 	 '(+pattern a 5) '(:pattern (:variable a) (:literal 5))
 	 '(+guard (+ 2 2) "foobar") '(:guard qbg.syntax-rules.test.pattern-parse (+ 2 2) "foobar")
 	 '(+code [] (+ 2 2)) '(:code #{} qbg.syntax-rules.test.pattern-parse (+ 2 2))
-	 '(+? foo) '(:or (:head (:variable foo)) (:head)))))
+	 '(+? foo) '(:or (:head (:variable foo)) (:head))
+	 '(+only a ...) '(:only (:amp #{a} (:variable a))))))
 
 (deftest test-parse-vector
   (are [form res] (= (#'pp/parse-vector form {:literals #{} :ns *ns*}) res)

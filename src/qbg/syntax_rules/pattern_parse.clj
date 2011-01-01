@@ -14,6 +14,7 @@
 	 :guard #{}
 	 :code (second form)
 	 :scode (second form)
+	 :only (apply pattern-vars (rest form))
 	 :head (apply pattern-vars (rest form))
 	 :and (apply pattern-vars (rest form))
 	 :or (apply pattern-vars (rest form))
@@ -136,6 +137,8 @@
    (= (first form) '+var) (parse-varclass form options)
    (= (first form) '+head) `(:head ~@(parse-seq (rest form) options))
    (= (first form) '+and) `(:and ~@(parse-seq (rest form) options))
+   (= (first form) '+head) `(:head ~@(parse-seq (rest form) options))
+   (= (first form) '+only) `(:only ~@(parse-seq (rest form) options))
    (= (first form) '+or) `(:or ~@(parse-seq (rest form) options))
    (= (first form) '+pattern) (parse-pattern-form form options)
    (= (first form) '+guard) (parse-guard form)

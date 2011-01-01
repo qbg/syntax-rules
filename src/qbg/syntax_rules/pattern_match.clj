@@ -360,12 +360,16 @@
   [form]
   (mapcat compile-pattern (rest form)))
 
+(defn- compile-only
+  [form]
+  (concat (mapcat compile-pattern (rest form)) [(do-eos)]))
+
 (defn- compile-varclass
   [form]
   (let [[_ variable klass & args] form]
-    [(do-in-progress) (do-store variable) (do-push-state)
+    [(do-store variable) (do-push-state)
      (apply do-varclass klass args)
-     (do-pop-state variable) (do-out-progress)]))
+     (do-pop-state variable)]))
 
 (defn- compile-and
   [form]
@@ -392,6 +396,7 @@
        :amp compile-amp
        :options compile-options
        :head compile-head
+       :only compile-only
        :pattern compile-pattern-form
        :list compile-list
        :vector compile-vector

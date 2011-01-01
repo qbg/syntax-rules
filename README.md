@@ -25,9 +25,12 @@ rest of the current sequence. Its effects will be scoped by a description
 enacted by `+describe` if one exists. This is useful ... patterns as the
 semantics of ... ensure that matching never fails during its scope.
 
-The list `(+head <pattern> ...)` will match each `<pattern>` in turn in the
+The list `(+head <patterns>)` will match each pattern in turn in the
 current context. That is, `(1 (+head 2 3) 4)` and `(1 2 3 4)` are equivalent
-patterns.
+patterns. This works similarly in templates.
+
+The list `(+only <patterns>)` is like `+head` except the current sequence must
+be finished after pattern for the match to succeed. This only works in rules.
 
 The list `(+and <pattern> ...)` and `(+or <pattern> ...)` will match if all/at
 least one of `<pattern>` matches respectively.

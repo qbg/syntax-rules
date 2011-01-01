@@ -37,6 +37,10 @@
 
        '(:head (:variable a) (:guard user true ""))
        5
+       {:good false}
+
+       '(:list (:only (:amp #{} (:literal 1))) (:literal 2))
+       '(1 1 1 2)
        {:good false}))
 
 (deftest test-order-progress
