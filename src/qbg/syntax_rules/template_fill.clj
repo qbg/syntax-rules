@@ -181,7 +181,7 @@
         mappings (zipmap needed (map gensym needed))]
     (reduce #(assoc %1 %2 %2)
 	    mappings '[quote def var recur do if throw try monitor-enter
-		       monitor-exit . new set! case* fn* let*])))
+		       monitor-exit . new set! case* fn* let* catch finally])))
   
 (defn fill-template
   [form state]
