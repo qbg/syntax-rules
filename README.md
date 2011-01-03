@@ -123,6 +123,10 @@ execute when the corresponding rule matches.
 `c-symbol`, `c-number`, `c-keyword`, `c-map`, `c-set`, and `c-string`  are the
 syntax classes for symbols, numbers, keywords, maps, sets, and strings.
 
+`c-pred` is the predicate syntax class. It takes two parameters: `pred` and
+`mesg`. A form will match this syntax class only if `(pred form)` returns true.
+`mesg` is a string that describes the types of forms match by `pred`. 
+
 ## Examples
 
 A `while` macro can be defined as:

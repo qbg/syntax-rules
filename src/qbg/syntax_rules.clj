@@ -160,3 +160,11 @@
  c-map "expected map" map?
  c-set "expected set" set?
  c-string "expected string" string?)
+
+(defsyntax-class c-pred [pred mesg]
+  ""
+  []
+  form
+  :fail-when
+  (pred-check pred (syntax form))
+  (format "expected %s" mesg))
