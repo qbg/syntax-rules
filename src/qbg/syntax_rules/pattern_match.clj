@@ -262,9 +262,11 @@
 	(fail-or res)))))
 
 (defn- do-varclass
-  [klass & args]
+  [fn-n]
   (fn [state]
-    ((apply klass args) state)))
+    (let [f (get (:params state) fn-n)
+	  varclass (f)]
+      (varclass state))))
 
 (defn- dirty-fill
   [template state]
@@ -290,17 +292,14 @@
     (fail-state state)))
 
 (defn- do-guard
-  [ns pred mesg]
+  [fn-n fn-m]
   (fn [state]
-    (binding [tf/*current-match* (fixup-state state)
-	      *ns* (find-ns ns)]
-      (let [params (:params state)
-	    vars (keys params)
-	    rhss (map (fn [v] `(quote ~v)) (vals params))
-	    bv (vec (interleave vars rhss))
-	    res (eval `(let ~bv ~pred))]
+    (binding [tf/*current-match* (fixup-state state)]
+      (let [guard-f (get (:params state) fn-n)
+	    mesg-f (get (:params state) fn-m)
+	    res (guard-f)]
 	(if res
-	  (fail-guard state (eval `(let ~bv ~mesg)) res)
+	  (fail-guard state (mesg-f) res)
 	  state)))))
 
 (defn- do-push-params
@@ -373,9 +372,9 @@
 
 (defn- compile-varclass
   [form]
-  (let [[_ variable klass & args] form]
+  (let [[_ variable fn-n] form]
     [(do-store variable) (do-push-state)
-     (apply do-varclass klass args)
+     (do-varclass fn-n)
      (do-pop-state variable)]))
 
 (defn- compile-and
@@ -392,8 +391,8 @@
 
 (defn- compile-guard
   [form]
-  (let [[_ ns code mesg] form]
-    [(do-guard ns code mesg)]))
+  (let [[_ fn-n fn-m] form]
+    [(do-guard fn-n fn-m)]))
 
 (defn- compile-pattern
   [form]
@@ -416,11 +415,11 @@
    form))
 
 (defn- make-state
-  [input]
+  [input fns]
   {:vars {} :input [input] :istack [] :good true
    :dstack ["Bad syntax"] :progress [0]
    :vstack [] :varm #{}
-   :params {} :param-stack []})
+   :params fns :param-stack []})
 
 (defn- exe-commands
   [cmds state]
@@ -461,17 +460,18 @@
      :varm (if (:good state) (:varm state) #{})
      :good (:good state)
      :describe (peek (:dstack state))
-     :progress (:progress state)}))
+     :progress (:progress state)
+     :params (:params state)}))
 
 (defn match
-  [pattern form]
-  (->> (make-state form)
+  [pattern fns form]
+  (->> (make-state form fns)
        (exe-commands (compile-pattern pattern))
        fixup-state))
 
 (defn make-syntax-class
-  [vars vals pattern]
-  (let [cmds (concat [(do-push-params (zipmap vars vals))]
+  [fns pattern]
+  (let [cmds (concat [(do-push-params fns)]
 		     (compile-pattern pattern)
 		     [(do-pop-params)])]
     (fn [state]

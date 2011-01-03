@@ -41,7 +41,8 @@
   {:vars {'a {:amp-depth 1 :val [1 2 3]}
 	  'b {:amp-depth 1 :val [{:vars {'c {:amp-depth 1 :val [1 2 3]}} :varm #{}}
 				 {:vars {'c {:amp-depth 1 :val [4 5 6]}} :varm #{}}]}}
-   :varm #{'b}})
+   :varm #{'b}
+   :params {0 (fn [] (+ 2 2))}})
 
 (deftest test-find-syms
   (are [form res] (= (#'tf/find-symbols '{:vars {a {:amp-depth 0 :val 5}}} 'form) 'res)
@@ -53,7 +54,7 @@
        '(:variable def) 'def
        '(:variable recur) 'recur
        '(:vector (:amp #{a} (:variable a)) (:amp #{a} (:variable a))) [1 2 3 1 2 3]
-       '(:code #{} user (+ 2 2)) 4
+       '(:code #{} 0) 4
        
        '(:vector (:amp #{b.c} (:vector (:amp #{b.c} (:variable b.c)))))
        [[1 2 3] [4 5 6]]))

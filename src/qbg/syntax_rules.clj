@@ -16,29 +16,46 @@
     (throw (Exception. (format "%s: %s" name mesg)))))
 
 (defn- perform-match
-  [form rt]
+  [form rt fns]
   (let [[rule template] rt]
-    (assoc (pm/match rule form)
+    (assoc (pm/match rule fns form)
       :template template)))
 
+(defn syntax-to-form-evaluating
+  "Functional version of syntax for advanced users"
+  [template fns]
+  (let [match tf/*current-match*
+	match (assoc match :params fns)]
+    (tf/fill-template template match)))
+
 (defn syntax-to-form
-  "Function version of syntax"
+  "Simplified functional version of syntax"
   ([template]
      (syntax-to-form template []))
   ([template literals]
      (let [literals (set literals)
-	   options {:literals literals :ns *ns*}
-	   template (pp/parse-pattern template options)
-	   res (tf/fill-template template tf/*current-match*)]
-       res)))
+	   options {:literals literals :ns *ns* :fns {} :n 0}
+	   [template options] (pp/parse-pattern template options)
+	   fns (:fns options)
+	   fns (zipmap (keys fns) (map eval (vals fns)))]
+       (syntax-to-form-evaluating template fns))))
+
+(defn- build-pattern
+  [pattern literals]
+  (let [literals (set literals)
+	options {:literals literals :ns *ns* :fns {} :n 0}
+	[pattern options] (pp/parse-pattern pattern options)
+	fns (:fns options)]
+    [pattern fns]))
 
 (defmacro syntax
   "Fill in the template and return it. Must be called in context of a pattern match."
   ([template]
-     `(syntax-to-form '~template))
+     `(syntax ~template []))
   ([template literals]
      (assert (vector? literals))
-     `(syntax-to-form '~template '~literals)))
+     (let [[template fns] (build-pattern template literals)]
+       `(syntax-to-form-evaluating '~template ~fns))))
 
 (defn absent?
   "Return true if variable was not bound in the enclosing match."
@@ -46,13 +63,10 @@
   (not (tf/contains-var? tf/*current-match* variable)))
 
 (defn make-apply-rules 
-  [name literals rules templates]
-  (let [ns *ns*
-	rule-templates (doall (map #(pp/build-rule-template %1 %2 literals ns)
-				   rules templates))
-	file *file*]
+  [name rts fns]
+  (let [file *file*]
     (fn [form]
-      (let [results (map (partial perform-match form) rule-templates)
+      (let [results (map (partial perform-match form) rts fns)
 	    line (:line (meta form))]
 	(if-let [m (first (filter :good results))]
 	  (binding [tf/*current-match* m]
@@ -60,12 +74,11 @@
 	  (throw-match-error name results line file))))))
 
 (defn make-apply-cases
-  [name literals rules thunks]
-  (let [options {:literals (set literals) :ns *ns*}
-	rt (map (fn [r t] [(pp/parse-pattern r options) t]) rules thunks)
-	file *file*]
+  [name rules thunks fns]
+  (let [file *file*]
     (fn [form]
-      (let [results (map (partial perform-match form) rt)
+      (let [rt (map vector rules thunks)
+	    results (map (partial perform-match form) rt fns)
 	    line (:line (meta form))]
 	(if-let [m (first (filter :good results))]
 	  (binding [tf/*current-match* m]
@@ -77,8 +90,12 @@
   [name docstring literals & rt-pairs]
   (assert (vector? literals))
   (let [rules (take-nth 2 rt-pairs)
-        templates (take-nth 2 (rest rt-pairs))]
-    `(let [ar# (make-apply-rules '~name '~literals '~rules '~templates)]
+        templates (take-nth 2 (rest rt-pairs))
+	ns *ns*
+	rtfs (map #(pp/build-rule-template %1 %2 literals ns) rules templates)
+	rts (map butlast rtfs)
+	fns (vec (map last rtfs))]
+    `(let [ar# (make-apply-rules '~name '~rts ~fns)]
        (defmacro ~name
 	 ~docstring
 	 {:arglists '~rules}
@@ -91,8 +108,12 @@
   (let [rules (take-nth 2 rt-pairs)
 	thunks (take-nth 2 (rest rt-pairs))
 	thunkify (fn [c] `(fn [] ~c))
-	thunks (vec (map thunkify thunks))]
-    `(let [ac# (make-apply-cases '~name '~literals '~rules ~thunks)]
+	thunks (vec (map thunkify thunks))
+	options {:literals literals :fns {} :ns *ns* :n 0}
+	ros (map #(pp/parse-pattern % options) rules)
+	rules (map first ros)
+	fns (vec (map (comp :fns second) ros))]
+    `(let [ac# (make-apply-cases '~name '~rules ~thunks ~fns)]
        (defmacro ~name
 	 ~docstring
 	 {:arglists '~rules}
@@ -102,11 +123,11 @@
 (defmacro defsyntax-class
   "Define a new syntax class"
   [name args description literals & body]
-  (let [class-pattern (pp/build-class-pattern description literals *ns* body)]
+  (let [[class-pattern fns] (pp/build-class-pattern description literals *ns* body)]
     `(defn ~name
        ~(format "The %s syntax class" name)
        ~args
-       (pm/make-syntax-class '~args ~args '~class-pattern))))
+       (pm/make-syntax-class ~fns '~class-pattern))))
 
 (defn check-duplicate
   "Return the duplicate item in coll if there is one, or false"

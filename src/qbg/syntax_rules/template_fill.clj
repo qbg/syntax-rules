@@ -153,10 +153,9 @@
 
 (defn- fill-code
   [form state mappings]
-  (let [[_ _ ns code] form]
-    (binding [*ns* (find-ns ns)
-	      *current-match* state]
-      (eval code))))
+  (let [[_ _ fn-n] form]
+    (binding [*current-match* state]
+      ((get (:params state) fn-n)))))
 
 (defn- fill-form
   [form state mappings]
