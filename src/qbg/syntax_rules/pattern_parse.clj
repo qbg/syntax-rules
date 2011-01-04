@@ -10,11 +10,9 @@
 	 :literal #{}
 	 :pattern (pattern-vars (second form))
 	 :describe (pattern-vars (nth form 2))
-	 :pdescribe #{}
 	 :guard #{}
 	 :code (second form)
 	 :scode (second form)
-	 :only (apply pattern-vars (rest form))
 	 :head (apply pattern-vars (rest form))
 	 :and (apply pattern-vars (rest form))
 	 :or (apply pattern-vars (rest form))
@@ -172,11 +170,9 @@
   (cond
    (= (first form) '+literal) [`(:literal ~(second form)) options]
    (= (first form) '+describe) (parse-describe form options)
-   (= (first form) '+pdescribe) [`(:pdescribe ~(second form)) options]
    (= (first form) '+var) (parse-varclass form options)
    (= (first form) '+head) (build-trivial :head (rest form) options)
    (= (first form) '+and) (build-trivial :and (rest form) options)
-   (= (first form) '+only) (build-trivial :only (rest form) options)
    (= (first form) '+or) (build-trivial :or (rest form) options)
    (= (first form) '+pattern) (parse-pattern-form form options)
    (= (first form) '+guard) (parse-guard form options)

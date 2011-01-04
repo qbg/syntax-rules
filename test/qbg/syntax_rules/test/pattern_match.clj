@@ -40,12 +40,7 @@
        '(:head (:variable a) (:guard 0 1))
        5
        {:good false}
-       {0 (clojure.core/fn [] true), 1 (clojure.core/fn [] "")}
-
-       '(:list (:only (:amp #{} (:literal 1))) (:literal 2))
-       '(1 1 1 2)
-       {:good false}
-       {}))
+       {0 (clojure.core/fn [] true), 1 (clojure.core/fn [] "")}))
 
 (deftest test-order-progress
   (are [a b r] (= (#'pm/order-progress a b) r)

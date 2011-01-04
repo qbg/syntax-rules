@@ -147,22 +147,22 @@
     coll))
 
 (t/do-template
- [name descript pred]
+ [name main-descript descript pred]
  (defsyntax-class name []
-   ""
+   main-descript
    []
    form
    :fail-when (pred-check pred (syntax form)) descript)
 
- c-symbol "expected symbol" symbol?
- c-number "expected number" number?
- c-keyword "expected keyword" keyword?
- c-map "expected map" map?
- c-set "expected set" set?
- c-string "expected string" string?)
+ c-symbol "symbol" "expected symbol" symbol?
+ c-number "number" "expected number" number?
+ c-keyword "keyword" "expected keyword" keyword?
+ c-map "map" "expected map" map?
+ c-set "set" "expected set" set?
+ c-string "string" "expected string" string?)
 
 (defsyntax-class c-pred [pred mesg]
-  ""
+  "form satsifying predicate"
   []
   form
   :fail-when

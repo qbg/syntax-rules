@@ -40,8 +40,7 @@
        '(+pattern a 5) '(:pattern (:variable a) (:literal 5)) {}
        '(+guard (+ 2 2) "foobar") '(:guard 0 1) {0 (clojure.core/fn [] (+ 2 2)) 1 (clojure.core/fn [] "foobar")}
        '(+code [] (+ 2 2)) '(:code #{} 0) {0 (clojure.core/fn [] (+ 2 2))}
-       '(+? foo) '(:or (:head (:variable foo)) (:head)) {}
-       '(+only a ...) '(:only (:amp #{a} (:variable a))) {}))
+       '(+? foo) '(:or (:head (:variable foo)) (:head)) {}))
 
 (deftest test-parse-vector
   (are [form res fns] (= (fix (#'pp/parse-vector form stdopts)) [res 'fns])

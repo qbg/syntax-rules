@@ -81,13 +81,6 @@
 	:input (next input))
       (fail-state state))))
 
-(defn- do-assert-end
-  []
-  (fn [state]
-    (if (empty? (:input state))
-      state
-      (fail-state state))))
-
 (defn- do-eos
   []
   (fn [state]
@@ -107,35 +100,29 @@
 	  :istack (conj (:istack state) (:input state)))
 	(fail-state state)))))
 
-(defn- do-push-describe
-  [mesg]
-  (fn [state]
-    (let [mesg (format "expected %s" mesg)
-	  form (current-item state)]
-      (assoc state
-	:dstack (conj (:dstack state) [mesg form])))))
-
-(defn- do-copy-describe
+(defn- do-queue-pop-describe
   []
   (fn [state]
-    (let [mesg (peek (:dstack state))
-	  dstack (conj (:dstack state) mesg)]
-      (assoc state :dstack dstack))))
-
-(defn- do-set-describe
-  [mesg]
-  (fn [state]
-    (let [mesg (format "expected %s" mesg)
-	  input (:input state)
-	  dstack (:dstack state)
-	  dstack (conj (pop dstack) [mesg input])]
-      (assoc state :dstack dstack))))
+    (update-in state [:pop-describe] inc)))
 
 (defn- do-pop-describe
   []
   (fn [state]
-    (assoc state
-      :dstack (pop (:dstack state)))))
+    (if (zero? (:pop-describe state))
+      state
+      (recur
+       (assoc state
+	 :dstack (pop (:dstack state))
+	 :pop-describe (dec (:pop-describe state)))))))
+
+(defn- do-push-describe
+  [mesg]
+  (fn [state]
+    (let [state ((do-pop-describe) state)
+	  mesg (format "expected %s" mesg)
+	  form (current-item state)]
+      (assoc state
+	:dstack (conj (:dstack state) [mesg form])))))
 
 (defn- do-push-vars
   [vs]
@@ -318,23 +305,23 @@
 
 (defn- compile-variable
   [form]
-  [(do-in-progress) (do-store (second form)) (move-forward) (do-out-progress)])
+  [(do-in-progress) (do-store (second form)) (move-forward) (do-pop-describe) (do-out-progress)])
 
 (defn- compile-literal
   [form]
-  [(do-in-progress) (do-literal (second form)) (move-forward) (do-out-progress)])
+  [(do-in-progress) (do-literal (second form)) (move-forward) (do-pop-describe) (do-out-progress)])
 
 (defn- compile-list
   [form]
   (concat
-   [(do-in-progress) (do-copy-describe) (do-nest seq?)]
+   [(do-in-progress) (do-nest seq?)]
    (mapcat compile-pattern (rest form))
    [(do-eos) (do-pop-describe) (move-forward) (do-out-progress)]))
 
 (defn- compile-vector
   [form]
   (concat
-   [(do-in-progress) (do-copy-describe) (do-nest vector?)]
+   [(do-in-progress) (do-nest vector?)]
    (mapcat compile-pattern (rest form))
    [(do-eos) (do-pop-describe) (move-forward) (do-out-progress)]))
 
@@ -343,11 +330,7 @@
   (concat
    [(do-push-describe (second form))]
    (compile-pattern (nth form 2))
-   [(do-pop-describe)]))
-
-(defn- compile-pdescribe
-  [form]
-  [(do-set-describe (second form))])
+   [(do-pop-describe) (do-queue-pop-describe)]))
 
 (defn- compile-amp
   [form]
@@ -365,10 +348,6 @@
 (defn- compile-head
   [form]
   (mapcat compile-pattern (rest form)))
-
-(defn- compile-only
-  [form]
-  (concat (mapcat compile-pattern (rest form)) [(do-assert-end)]))
 
 (defn- compile-varclass
   [form]
@@ -402,12 +381,10 @@
        :amp compile-amp
        :options compile-options
        :head compile-head
-       :only compile-only
        :pattern compile-pattern-form
        :list compile-list
        :vector compile-vector
        :describe compile-describe
-       :pdescribe compile-pdescribe
        :and compile-and
        :or compile-or
        :guard compile-guard
@@ -419,7 +396,8 @@
   {:vars {} :input [input] :istack [] :good true
    :dstack ["Bad syntax"] :progress [0]
    :vstack [] :varm #{}
-   :params fns :param-stack []})
+   :params fns :param-stack []
+   :pop-describe 0})
 
 (defn- exe-commands
   [cmds state]
