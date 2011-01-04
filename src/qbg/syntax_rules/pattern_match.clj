@@ -29,7 +29,19 @@
 
 (defn- fail-state
   [state]
-  (assoc state :good false))
+  (let [cause (peek (:dstack state))
+	ddepth (peek (:ddstack state))
+	depth (:depth state)]
+    (if (and (vector? cause) (= 1 (count cause)))
+      (let [delta (- depth ddepth)
+	    ilength (count (:istack state))
+	    form (if (= delta 0)
+		   (first (:input state))
+		   (first (nth (:istack state) (- ilength delta))))
+	    mesg (peek (:dstack state))
+	    dstack (conj (pop (:dstack state)) (conj mesg form))]
+	(assoc state :good false :dstack dstack))
+      (assoc state :good false))))
 
 (defn- do-store
   [variable]
@@ -87,7 +99,8 @@
     (if (empty? (:input state))
       (assoc state
 	:input (peek (:istack state))
-	:istack (pop (:istack state)))
+	:istack (pop (:istack state))
+	:depth (dec (:depth state)))
       (fail-state state))))
 
 (defn- do-nest
@@ -97,7 +110,8 @@
       (if (pred item)
 	(assoc state
 	  :input item
-	  :istack (conj (:istack state) (:input state)))
+	  :istack (conj (:istack state) (:input state))
+	  :depth (inc (:depth state)))
 	(fail-state state)))))
 
 (defn- do-queue-pop-describe
@@ -113,16 +127,17 @@
       (recur
        (assoc state
 	 :dstack (pop (:dstack state))
+	 :ddstack (pop (:ddstack state))
 	 :pop-describe (dec (:pop-describe state)))))))
 
 (defn- do-push-describe
   [mesg]
   (fn [state]
     (let [state ((do-pop-describe) state)
-	  mesg (format "expected %s" mesg)
-	  form (current-item state)]
+	  mesg (format "expected %s" mesg)]
       (assoc state
-	:dstack (conj (:dstack state) [mesg form])))))
+	:ddstack (conj (:ddstack state) (:depth state))
+	:dstack (conj (:dstack state) [mesg])))))
 
 (defn- do-push-vars
   [vs]
@@ -394,6 +409,8 @@
   [input fns]
   {:vars {} :input [input] :istack [] :good true
    :dstack ["Bad syntax"] :progress [0]
+   :ddstack []
+   :depth 0
    :vstack [] :varm #{}
    :params fns :param-stack []
    :pop-describe 0})
