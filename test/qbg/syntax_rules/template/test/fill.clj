@@ -9,7 +9,7 @@
     (:literal :foo) :foo))
 
 (deftest test-fill-symbol
-  (are [form res] (= (fill-variable 'form {} {'a 'b}) 'res)
+  (are [form res] (= (fill-variable 'form {} {'a 'b, '+ 'clojure.core/+}) 'res)
     (:variable a) b
     (:variable +) clojure.core/+))
 
@@ -26,7 +26,7 @@
 (deftest test-fill-amp
   (are [form res] (= (fill-amp 'form {:vars {'a {:ell [{:val 1} {:val 2} {:val 3}]}}
 				     :fill-stack []}
-			       {'b 'c}) 'res)
+			       {'b 'c, 'fn 'clojure.core/fn}) 'res)
        (:amp #{a} (:variable a) (:variable b)) (1 c 2 c 3 c)
 
        (:amp #{a fn} (:list (:variable fn) (:vector) (:variable a)))

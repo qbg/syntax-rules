@@ -10,7 +10,7 @@
 (defn match-varclass
   [sym varclass]
   (prim/combine
-   (prim/store-variable sym) (prim/eval-in-context varclass)))
+   (prim/store-variable sym) (prim/push-vars) (prim/eval-in-context varclass) (prim/pop-nesting-vars sym)))
 
 (defn match-literal
   [lit]

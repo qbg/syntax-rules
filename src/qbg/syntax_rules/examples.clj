@@ -40,7 +40,7 @@
 (defsyntax-case ex-cond
   "See cond"
   []
-  (cond (+describe "even number of clauses" (+head pred expr) ...)
+  (cond (+describe "even number of clauses" (+head pred expr) ...))
   (loop [preds (reverse (syntax (pred ...)))
 	 exprs (reverse (syntax (expr ...)))
 	 res nil]

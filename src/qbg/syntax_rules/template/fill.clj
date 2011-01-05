@@ -59,24 +59,17 @@
       (:val vm)
       (throw (IllegalStateException. "No such pattern variable")))))
 
-(defn fill-symbol
-  [sym mappings]
-  (if (contains? mappings sym)
-    (get mappings sym)
-    ;; Hack
-    (symbol (subs (str (resolve sym)) 2))))
-
 (defn actually-variable?
-  [state sym]
+  [state mappings sym]
   (or (multisegment? sym)
-      (contains? (:vars state) sym)))
+      (not (contains? mappings sym))))
 
 (defn fill-variable
   [form state mappings]
   (let [sym (second form)]
-    (if (actually-variable? state sym)
+    (if (actually-variable? state mappings sym)
       (fill-simple-variable sym state)
-      (fill-symbol sym mappings))))
+      (get mappings sym))))
 
 (defn fill-head
   [form state mappings]
@@ -110,21 +103,23 @@
   [state v]
   (let [fs (:fill-stack state)
 	parts (split-symbol v)
-	vp (get-var-value ((:vars state) (first parts)) fs (next parts))]
-    (count (:ell vp))))
+	vp (get-var-value ((:vars state) (first parts)) fs (next parts) :fail)]
+    (if (= vp :fail) 0 (count (:ell vp)))))
 
 (defn get-vars-length
-  [vars state]
-  (let [vars (filter #(actually-variable? state %) vars)
+  [vars state mappings]
+  (let [vars (filter #(actually-variable? state mappings %) vars)
 	lengths (map #(get-var-length state %) vars)]
-    (if (apply = lengths)
-      (first lengths)
-      (throw (IllegalStateException. "Variables under ellipsis have unequal lengths")))))
+    (if (seq lengths)
+      (if (apply = lengths)
+	(first lengths)
+	(throw (IllegalStateException. "Variables under ellipsis have unequal lengths")))
+      0)))
 
 (defn fill-amp
   [form state mappings]
   (let [[_ vars & forms] form
-	length (get-vars-length vars state)
+	length (get-vars-length vars state mappings)
 	fs (:fill-stack state)]
     (loop [res [], n 0]
       (if (< n length)
@@ -156,12 +151,21 @@
 	clean #(or (get (:vars state) %) (multisegment? %))]
     (into #{} (remove clean patvars))))
 
+(defn- resolve-sym
+  [sym]
+  ;; Hack
+  (symbol (subs (str (resolve sym)) 2)))
+
 (defn make-mappings
-  [syms]
-  (let [needed (filter #(and
-			 (not (multisegment? %))
-			 (not (resolve %))) syms)
-        mappings (zipmap needed (map gensym needed))]
+  [state syms]
+  (let [syms (remove #(or (multisegment? %)
+			  (contains? (:vars state) %))
+		     syms)
+	resolvable (filter resolve syms)
+	gensyms (remove resolve syms)
+        mappings (conj
+		  (zipmap resolvable (map resolve-sym resolvable))
+		  (zipmap gensyms (map gensym gensyms)))]
     (reduce #(assoc %1 %2 %2)
 	    mappings '[quote def var recur do if throw try monitor-enter
 		       monitor-exit . new set! case* fn* let* catch finally])))
@@ -170,5 +174,5 @@
   [form state]
   (let [state (assoc state :fill-stack (or (:fill-stack state) []))
 	syms (find-symbols state form)
-	mappings (make-mappings syms)]
+	mappings (make-mappings state syms)]
     (fill-form form state mappings)))

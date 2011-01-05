@@ -87,8 +87,7 @@
       (assoc state
 	:input item
 	:istack (conj (:istack state) (:input state))
-	:depth (inc (:depth state)))
-      (fail-state state))))
+	:depth (inc (:depth state))))))
 
 (defn unnest
   []
@@ -136,9 +135,13 @@
 	  merge-f (fn [prev next]
 		    (if (:val prev)
 		      (throw (IllegalStateException. "Pattern variable already bound"))
-		      (let [prev (assoc prev :ell (or (:ell prev) []))]
-			(update-in prev [:ell] conj next))))
-	  top-vs (merge-with merge-f top-vs (:vars state))]
+		      (update-in prev [:ell] conj next)))
+	  new-keys (remove (set (keys top-vs)) (keys (:vars state)))
+	  old-vars (apply dissoc (:vars state) new-keys)
+	  new-vs (select-keys (:vars state) new-keys)
+	  new-vs (into {} (map (fn [[k v]] [k {:ell [v]}]) new-vs))
+	  top-vs (merge-with merge-f top-vs old-vars)
+	  top-vs (conj top-vs new-vs)]
       (assoc state
 	:vstack (conj vstack top-vs)
 	:vars {}))))

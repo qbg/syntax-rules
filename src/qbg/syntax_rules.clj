@@ -18,7 +18,7 @@
 (defn- perform-match
   [form rt]
   (let [[rule template] rt]
-    (assoc (match/match rule form)
+    (assoc (pattern/match rule form)
       :template template)))
 
 (defn syntax-to-form-evaluating
@@ -66,11 +66,11 @@
   (assert (vector? literals))
   (let [rules (take-nth 2 rt-pairs)
 	patternate (fn [r] `(pattern/pattern ~literals ~r))
-	rules (vec (map patternate rules))
+	good-rules (vec (map patternate rules))
 	thunks (take-nth 2 (rest rt-pairs))
 	thunkify (fn [c] `(fn [] ~c))
 	thunks (vec (map thunkify thunks))]
-    `(let [ac# (make-apply-cases '~name ~rules ~thunks)]
+    `(let [ac# (make-apply-cases '~name ~good-rules ~thunks)]
        (defmacro ~name
 	 ~docstring
 	 {:arglists '~rules}
