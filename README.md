@@ -27,9 +27,9 @@ patterns. This works similarly in templates.
 The list `(+and <pattern> ...)` and `(+or <pattern> ...)` will match if all/at
 least one of `<pattern>` matches respectively.
 
-The list `(+pattern <pattern> <template>)` will match `<pattern>` against the
-result of filling in `<template>` with the current progress of the matching.
-This operation consumes no input.
+The list `(+pattern <pattern> <code>)` will match `<pattern>` against the
+result of executing `<code>` with the current progress of the matching. This
+operation consumes no input.
 
 The list `(+guard <code> <mesg>)` will execute the form `<code>`. If `<code>`
 returns a true value, `<mesg>` will be reported as the type of error with the
@@ -59,6 +59,11 @@ amount of input.
 
 The list `(+? <patterns>)` is equivalent to `(+or (+head <patterns>) (+head))`;
 this is useful as it makes `<patterns>` optional.
+
+The list `(+c <code>)` will execute `<code>` to create the matcher to be used
+for this pattern. These pattern matchers can be defined using the combinators in
+the `qbg.syntax-rules.pattern.match` namespace, or, if needed, the
+`qbg.syntax-rules.pattern.primitives` namespace.
 
 When a macro defined defsyntax-rules encounters a syntax error (that is, when
 none of the rules match), all of the rules are examined to determine which one

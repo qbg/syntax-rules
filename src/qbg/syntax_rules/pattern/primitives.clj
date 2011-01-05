@@ -24,17 +24,21 @@
       (assoc state :good false))))
 
 (defn eval-in-context
+  "Evaluate thunk in the context of the current match"
   [thunk]
   (fn [state]
     (binding [core/*current-match* (fixup-state state)]
       ((thunk) state))))
 
 (defn in-progress
+  "Adjust the progress as to move into the current item"
   []
   (fn [state]
     (update-in state [:progress] conj 0)))
 
 (defn out-progress
+  "Adjust the progress as to move out of the current item and towards the next
+one"
   []
   (fn [state]
     (let [p (pop (:progress state))
@@ -44,6 +48,7 @@
       (assoc state :progress p))))
 
 (defn store-variable
+  "Store the current item into sym, failing if it has already been bound"
   [sym]
   (fn [state]
     (let [item (first (:input state))
@@ -53,6 +58,8 @@
 	(assoc-in state [:vars sym :val] item)))))
 
 (defn assert-pred
+  "Fail if pred on the current item returns false, where mesg describes the
+predicate"
   [pred mesg]
   (fn [state]
     (let [item (first (:input state))]
@@ -63,10 +70,13 @@
 	  (fail-state (assoc state :dstack dstack)))))))
 
 (defn assert-literal
+  "Fail if the current item is not lit"
   [lit]
   (assert-pred #(= % lit) (str lit)))
 
 (defn forward
+  "Move the input forward one item, failing if there is no more input in the
+current sequence"
   []
   (fn [state]
     (if-let [input (seq (:input state))]
@@ -74,6 +84,7 @@
       (fail-state state))))
 
 (defn assert-end
+  "Fail if there is more input in the current sequence"
   []
   (fn [state]
     (if (empty? (:input state))
@@ -81,6 +92,7 @@
       (fail-state state))))
 
 (defn nest
+  "Enter the seqable current item"
   []
   (fn [state]
     (let [item (first (:input state))]
@@ -90,6 +102,7 @@
 	:depth (inc (:depth state))))))
 
 (defn unnest
+  "Exit the current sequence"
   []
   (fn [state]
     (assoc state
@@ -98,6 +111,7 @@
       :depth (dec (:depth state)))))
 
 (defn push-describe
+  "Push mesg on the description stack"
   [mesg]
   (fn [state]
     (let [mesg (format "expected %s" mesg)]
@@ -106,11 +120,13 @@
 	:dstack (conj (:dstack state) [mesg])))))
 
 (defn phase-out-describe
+  "Mark the current describe message as being ready to pop"
   []
   (fn [state]
     (assoc state :pop-describe true)))
 
 (defn pop-describe
+  "Pop the current describe message if it is ready to be popped"
   []
   (fn [state]
     (if (:pop-describe state)
@@ -121,6 +137,7 @@
       state)))
 
 (defn push-vars
+  "Push :vars onto :vstack"
   []
   (fn [state]
     (assoc state
@@ -128,6 +145,7 @@
       :vstack (conj (:vstack state) (:vars state)))))
 
 (defn merge-vars
+  "Merge and empty :vars into the top of :vstack"
   []
   (fn [state]
     (let [vstack (pop (:vstack state))
@@ -147,6 +165,7 @@
 	:vars {}))))
 
 (defn pop-vars
+  "Pop :vstack to :vars"
   []
   (fn [state]
     (assoc state
@@ -154,6 +173,7 @@
       :vstack (pop (:vstack state)))))
 
 (defn pop-nesting-vars
+  "Pop :vstack to :vars, nesting the current :vars under sym"
   [sym]
   (fn [state]
     (let [top-vs (peek (:vstack state))]
@@ -162,6 +182,7 @@
 	:vstack (pop (:vstack state))))))
 
 (defn combine
+  "Execute cmds in sequence"
   [& cmds]
   (fn [state]
     (loop [state state, cmds cmds]
@@ -172,6 +193,8 @@
 	state))))
 
 (defn perform-and
+  "Perform cmds in sequence, starting each one with the same progress and input.
+Effect of last cmd stays. If any cmds cause a failure, the match fails."
   [& cmds]
   (fn [state]
     (let [intro (butlast cmds)
@@ -197,6 +220,8 @@
     (fail-state best)))
 
 (defn perform-or
+  "Like perform-and, only stops with first successful cmd, whose effects stay.
+If all cmds fail, the match fails with the state of the most successful cmd."
   [& cmds]
   (fn [state]
     (loop [cmds cmds, res []]
@@ -224,6 +249,8 @@
       (form-d))))
 
 (defn aside
+  "Execute cmds with the input temporarily set to the result of (form-d) when
+executed with implicit match state being the current match state."
   [form-d & cmds]
   (let [cmd (apply combine cmds)]
     (fn [state]
@@ -242,6 +269,9 @@
     (fail-state state)))
 
 (defn guard
+  "With the implicit match state being the current match state, check to see if
+((form-d)) returns false; if it does not, fail with the blame form being the
+result of ((form-d)) and the message being the result of (mesg-d)."
   [form-d mesg-d]
   (fn [state]
     (binding [core/*current-match* (fixup-state state)]
@@ -251,6 +281,7 @@
 	  state)))))
 
 (defn make-state
+  "Create a matching state with input"
   [input]
   {:vars {} :input [input] :istack ()
    :good true
