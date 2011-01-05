@@ -103,7 +103,7 @@
 	fns (assoc fns n `(fn [] ~code))]
     [`(~head ~(set vars) ~n) (assoc options :n (inc n) :fns fns)]))
 
-(defn- parse-list
+(defn parse-list
   [form options]
   (cond
    (= (first form) '+literal) [`(:literal ~(second form)) options]

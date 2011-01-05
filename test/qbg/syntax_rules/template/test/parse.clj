@@ -1,7 +1,7 @@
-(ns qbg.syntax-rules.test.pattern-parse
+(ns qbg.syntax-rules.template.test.parse
   (:use
     clojure.test
-    [qbg.syntax-rules.pattern-parse :reload-all true]))
+    [qbg.syntax-rules.template.parse :reload-all true]))
 
 (defn- fix
   [[x y]]

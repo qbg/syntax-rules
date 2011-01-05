@@ -17,62 +17,47 @@
   [sym]
   (map symbol (.split (str sym) "\\.")))
 
-(defn get-part
-  [coll choices]
-  (if-let [[choice & choices] (seq choices)]
-    (recur (nth coll choice) choices)
-    coll))
-
-(defn get-variable-part
-  [state parts choices]
-  (let [vm (get (:vars state) (first parts))
-	ad (:amp-depth vm)]
-    (let [[first-choices next-choices] (split-at ad choices)
-	  next-vm (get-part (:val vm) first-choices)]
-      (cond
-       (empty? (next parts))
-       next-vm
-       
-       (< (count choices) ad)
-       next-vm
-
-       (> (count choices) ad)
-       (recur next-vm (next parts) next-choices)
-
-       :else (get (:vars next-vm) (second parts))))))
+(defn get-var-value
+  ([vm fill-stack parts]
+     (get-var-value vm fill-stack parts false))
+  ([vm fill-stack parts soft]
+     (if (seq fill-stack)
+       (cond
+	(contains? vm :ell)
+	(recur (nth (:ell vm) (first fill-stack))
+	       (next fill-stack) parts soft)
+	(contains? vm :vars)
+	(if (seq parts)
+	  (if (contains? (:vars vm) (first parts))
+	    (recur ((:vars vm) (first parts)) fill-stack (next parts) soft)
+	    (or soft (throw (IllegalStateException. "No such pattern variable"))))
+	  (or soft (throw (IllegalStateException. "Inconsistant ellipsis depth"))))
+	:else
+	(throw (IllegalStateException. "Inconsistant ellipsis depth")))
+       (if (seq parts)
+	 (if (contains? vm :vars)
+	   (if (contains? (:vars vm) (first parts))
+	     (recur ((:vars vm) (first parts)) fill-stack (next parts) soft)
+	     (or soft (throw (IllegalStateException. "No such pattern variable"))))
+	   vm)
+	 vm))))
 
 (defn contains-var?
   [state var]
   (if (multisegment? var)
     (let [parts (split-symbol var)
-	  part (get-variable-part state (butlast parts) (:fill-stack state))]
-      (contains? (:vars part) (last parts)))
+	  part (get-var-value state parts (:fill-stack state) :fail)]
+      (not= :fail part))
     (contains? (:vars state) var)))
-
-(defn get-var-value
-  [state fill-stack parts]
-  (let [[v & parts] parts
-	vm (get (:vars state) v)
-	depth (:amp-depth vm)
-	[fs next-fill-stack] (split-at depth fill-stack)
-	part (get-part (:val vm) fs)]
-    (if (empty? parts)
-      (if (not= depth (count fill-stack))
-	(throw (IllegalArgumentException. "Inconsistant ellipsis depth"))
-	(if (contains? (:varm state) v)
-	  (:mega part)
-	  part))
-      (if (contains? (:varm state) v)
-	(recur part next-fill-stack parts)
-	(throw (IllegalArgumentException. "No such pattern variable"))))))
 
 (defn fill-simple-variable
   [variable state]
   (let [fill-stack (:fill-stack state)
-	parts (split-symbol variable)]
-    (if (contains? (:vars state) (first parts))
-      (get-var-value state fill-stack parts)
-      (throw (IllegalArgumentException. "No such pattern variable")))))
+	parts (split-symbol variable)
+	vm (get-var-value ((:vars state) (first parts)) fill-stack (next parts))]
+    (if (and vm (contains? vm :val))
+      (:val vm)
+      (throw (IllegalStateException. "No such pattern variable")))))
 
 (defn fill-symbol
   [sym mappings]
@@ -125,10 +110,8 @@
   [state v]
   (let [fs (:fill-stack state)
 	parts (split-symbol v)
-	vp (get-variable-part state parts fs)]
-    (if (vector? vp)
-      (count vp)
-      (count (:val vp)))))
+	vp (get-var-value ((:vars state) (first parts)) fs (next parts))]
+    (count (:ell vp))))
 
 (defn get-vars-length
   [vars state]

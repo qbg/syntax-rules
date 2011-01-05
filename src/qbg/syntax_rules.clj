@@ -1,14 +1,13 @@
 (ns qbg.syntax-rules
   (:require
    [qbg.syntax-rules.core :as core]
-   [qbg.syntax-rules.pattern-parse :as pp]
-   [qbg.syntax-rules.pattern-match :as pm]
+   [qbg.syntax-rules.pattern :as pattern]
    [qbg.syntax-rules.template :as temp]
    [clojure.template :as t]))
 
 (defn- throw-match-error
   [name results line file]
-  (let [res (first (sort-by :progress (comparator pm/order-progress) results))
+  (let [res (first (sort-by :progress (comparator core/order-progress) results))
 	mesg (let [d (:describe res)]
 	       (if (vector? d)
 		 (let [[mesg cause] (:describe res)] 
@@ -17,9 +16,9 @@
     (throw (Exception. (format "%s: %s" name mesg)))))
 
 (defn- perform-match
-  [form rt fns]
+  [form rt]
   (let [[rule template] rt]
-    (assoc (pm/match rule fns form)
+    (assoc (match/match rule form)
       :template template)))
 
 (defn syntax-to-form-evaluating
@@ -36,14 +35,6 @@
 	   fns (zipmap (keys fns) (map eval (vals fns)))]
        (syntax-to-form-evaluating parsed fns))))
 
-(defn- build-pattern
-  [pattern literals]
-  (let [literals (set literals)
-	options {:literals literals :ns *ns* :fns {} :n 0}
-	[pattern options] (pp/parse-pattern pattern options)
-	fns (:fns options)]
-    [pattern fns]))
-
 (defmacro syntax
   "Fill in the template and return it. Must be called in context of a pattern match."
   ([template]
@@ -59,11 +50,11 @@
   (not (temp/contains-var? variable)))
 
 (defn make-apply-cases
-  [name rules thunks fns]
+  [name rules thunks]
   (let [file *file*]
     (fn [form]
       (let [rt (map vector rules thunks)
-	    results (map (partial perform-match form) rt fns)
+	    results (map (partial perform-match form) rt)
 	    line (:line (meta form))]
 	(if-let [m (first (filter :good results))]
 	  (binding [core/*current-match* m]
@@ -74,14 +65,12 @@
   [name docstring literals & rt-pairs]
   (assert (vector? literals))
   (let [rules (take-nth 2 rt-pairs)
+	patternate (fn [r] `(pattern/pattern ~literals ~r))
+	rules (vec (map patternate rules))
 	thunks (take-nth 2 (rest rt-pairs))
 	thunkify (fn [c] `(fn [] ~c))
-	thunks (vec (map thunkify thunks))
-	options {:literals literals :fns {} :ns *ns* :n 0}
-	ros (map #(pp/parse-pattern % options) rules)
-	rules (map first ros)
-	fns (vec (map (comp :fns second) ros))]
-    `(let [ac# (make-apply-cases '~name '~rules ~thunks ~fns)]
+	thunks (vec (map thunkify thunks))]
+    `(let [ac# (make-apply-cases '~name ~rules ~thunks)]
        (defmacro ~name
 	 ~docstring
 	 {:arglists '~rules}
@@ -104,11 +93,12 @@
 (defmacro defsyntax-class
   "Define a new syntax class"
   [name args description literals & body]
-  (let [[class-pattern fns] (pp/build-class-pattern description literals *ns* body)]
+  (let [temp (fn [form] `(syntax ~form ~literals))
+	pat (pattern/parse-syntax-class description temp literals body)]
     `(defn ~name
        ~(format "The %s syntax class" name)
        ~args
-       (pm/make-syntax-class ~fns '~class-pattern))))
+       ~pat)))
 
 (defn check-duplicate
   "Return the duplicate item in coll if there is one, or false"
