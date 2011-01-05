@@ -1,9 +1,10 @@
 (ns qbg.syntax-rules
   (:require
-    [qbg.syntax-rules.pattern-parse :as pp]
-    [qbg.syntax-rules.pattern-match :as pm]
-    [qbg.syntax-rules.template-fill :as tf]
-    [clojure.template :as t]))
+   [qbg.syntax-rules.core :as core]
+   [qbg.syntax-rules.pattern-parse :as pp]
+   [qbg.syntax-rules.pattern-match :as pm]
+   [qbg.syntax-rules.template :as temp]
+   [clojure.template :as t]))
 
 (defn- throw-match-error
   [name results line file]
@@ -24,21 +25,16 @@
 (defn syntax-to-form-evaluating
   "Functional version of syntax for advanced users"
   [template fns]
-  (let [match tf/*current-match*
-	match (assoc match :params fns)]
-    (tf/fill-template template match)))
+  (temp/fill-template template fns))
 
 (defn syntax-to-form
   "Simplified functional version of syntax"
   ([template]
      (syntax-to-form template []))
   ([template literals]
-     (let [literals (set literals)
-	   options {:literals literals :ns *ns* :fns {} :n 0}
-	   [template options] (pp/parse-pattern template options)
-	   fns (:fns options)
+     (let [[parsed fns] (temp/parse template literals)
 	   fns (zipmap (keys fns) (map eval (vals fns)))]
-       (syntax-to-form-evaluating template fns))))
+       (syntax-to-form-evaluating parsed fns))))
 
 (defn- build-pattern
   [pattern literals]
@@ -54,24 +50,13 @@
      `(syntax ~template []))
   ([template literals]
      (assert (vector? literals))
-     (let [[template fns] (build-pattern template literals)]
+     (let [[template fns] (temp/parse template literals)]
        `(syntax-to-form-evaluating '~template ~fns))))
 
 (defn absent?
   "Return true if variable was not bound in the enclosing match."
   [variable]
-  (not (tf/contains-var? tf/*current-match* variable)))
-
-(defn make-apply-rules 
-  [name rts fns]
-  (let [file *file*]
-    (fn [form]
-      (let [results (map (partial perform-match form) rts fns)
-	    line (:line (meta form))]
-	(if-let [m (first (filter :good results))]
-	  (binding [tf/*current-match* m]
-	    (tf/fill-template (:template m) m))
-	  (throw-match-error name results line file))))))
+  (not (temp/contains-var? variable)))
 
 (defn make-apply-cases
   [name rules thunks fns]
@@ -81,26 +66,9 @@
 	    results (map (partial perform-match form) rt fns)
 	    line (:line (meta form))]
 	(if-let [m (first (filter :good results))]
-	  (binding [tf/*current-match* m]
+	  (binding [core/*current-match* m]
 	    ((:template m)))
 	  (throw-match-error name results line file))))))
-
-(defmacro defsyntax-rules
-  "Define a macro that uses the rule-template pairs to expand all invokations"
-  [name docstring literals & rt-pairs]
-  (assert (vector? literals))
-  (let [rules (take-nth 2 rt-pairs)
-        templates (take-nth 2 (rest rt-pairs))
-	ns *ns*
-	rtfs (map #(pp/build-rule-template %1 %2 literals ns) rules templates)
-	rts (map butlast rtfs)
-	fns (vec (map last rtfs))]
-    `(let [ar# (make-apply-rules '~name '~rts ~fns)]
-       (defmacro ~name
-	 ~docstring
-	 {:arglists '~rules}
-         [& ~'forms]
-         (ar# ~'&form)))))
 
 (defmacro defsyntax-case
   [name docstring literals & rt-pairs]
@@ -119,6 +87,19 @@
 	 {:arglists '~rules}
 	 [& ~'forms]
 	 (ac# ~'&form)))))
+
+(defmacro defsyntax-rules
+  "Define a macro that uses the rule-template pairs to expand all invokations"
+  [name docstring literals & rt-pairs]
+  (assert (vector? literals))
+  (let [rules (take-nth 2 rt-pairs)
+        templates (take-nth 2 (rest rt-pairs))
+	cases (map (fn [t] `(syntax ~t ~literals)) templates)
+	rt-pairs (interleave rules cases)]
+    `(defsyntax-case ~name
+       ~docstring
+       ~literals
+       ~@rt-pairs)))
 
 (defmacro defsyntax-class
   "Define a new syntax class"

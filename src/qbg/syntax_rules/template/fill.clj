@@ -1,30 +1,29 @@
-(ns qbg.syntax-rules.template-fill
+(ns qbg.syntax-rules.template.fill
   (:require
-   [qbg.syntax-rules.pattern-parse :as pp]))
-
-(def *current-match*)
+   [qbg.syntax-rules.template.parse :as parse]
+   [qbg.syntax-rules.core :as core]))
 
 (declare fill-form fill-amp fill-code)
 
-(defn- fill-literal
+(defn fill-literal
   [form state mappings]
   (second form))
 
-(defn- multisegment?
+(defn multisegment?
   [name]
   (boolean (some #{\.} (str name))))
 
-(defn- split-symbol
+(defn split-symbol
   [sym]
   (map symbol (.split (str sym) "\\.")))
 
-(defn- get-part
+(defn get-part
   [coll choices]
   (if-let [[choice & choices] (seq choices)]
     (recur (nth coll choice) choices)
     coll))
 
-(defn- get-variable-part
+(defn get-variable-part
   [state parts choices]
   (let [vm (get (:vars state) (first parts))
 	ad (:amp-depth vm)]
@@ -50,7 +49,7 @@
       (contains? (:vars part) (last parts)))
     (contains? (:vars state) var)))
 
-(defn- get-var-value
+(defn get-var-value
   [state fill-stack parts]
   (let [[v & parts] parts
 	vm (get (:vars state) v)
@@ -67,7 +66,7 @@
 	(recur part next-fill-stack parts)
 	(throw (IllegalArgumentException. "No such pattern variable"))))))
 
-(defn- fill-simple-variable
+(defn fill-simple-variable
   [variable state]
   (let [fill-stack (:fill-stack state)
 	parts (split-symbol variable)]
@@ -75,31 +74,31 @@
       (get-var-value state fill-stack parts)
       (throw (IllegalArgumentException. "No such pattern variable")))))
 
-(defn- fill-symbol
+(defn fill-symbol
   [sym mappings]
   (if (contains? mappings sym)
     (get mappings sym)
     ;; Hack
     (symbol (subs (str (resolve sym)) 2))))
 
-(defn- actually-variable?
+(defn actually-variable?
   [state sym]
   (or (multisegment? sym)
       (contains? (:vars state) sym)))
 
-(defn- fill-variable
+(defn fill-variable
   [form state mappings]
   (let [sym (second form)]
     (if (actually-variable? state sym)
       (fill-simple-variable sym state)
       (fill-symbol sym mappings))))
 
-(defn- fill-head
+(defn fill-head
   [form state mappings]
   (let [forms (rest form)]
     (map #(fill-form % state mappings) forms)))
 
-(defn- fill-seq
+(defn fill-seq
   [form state mappings]
   (loop [res [], form form]
     (if (seq form)
@@ -114,15 +113,15 @@
        (recur (conj res (fill-form (first form) state mappings)) (next form)))
       res)))
 
-(defn- fill-list
+(defn fill-list
   [form state mappings]
   (seq (fill-seq (rest form) state mappings)))
 
-(defn- fill-vector
+(defn fill-vector
   [form state mappings]
   (fill-seq (rest form) state mappings))
 
-(defn- get-var-length
+(defn get-var-length
   [state v]
   (let [fs (:fill-stack state)
 	parts (split-symbol v)
@@ -131,7 +130,7 @@
       (count vp)
       (count (:val vp)))))
 
-(defn- get-vars-length
+(defn get-vars-length
   [vars state]
   (let [vars (filter #(actually-variable? state %) vars)
 	lengths (map #(get-var-length state %) vars)]
@@ -139,7 +138,7 @@
       (first lengths)
       (throw (IllegalStateException. "Variables under ellipsis have unequal lengths")))))
 
-(defn- fill-amp
+(defn fill-amp
   [form state mappings]
   (let [[_ vars & forms] form
 	length (get-vars-length vars state)
@@ -151,13 +150,13 @@
 	  (recur (conj res (fill-seq forms state mappings)) (inc n)))
         (apply concat res)))))
 
-(defn- fill-code
+(defn fill-code
   [form state mappings]
   (let [[_ _ fn-n] form]
-    (binding [*current-match* state]
+    (binding [core/*current-match* state]
       ((get (:params state) fn-n)))))
 
-(defn- fill-form
+(defn fill-form
   [form state mappings]
   ((condp = (first form)
     :variable fill-variable
@@ -168,13 +167,13 @@
     :code fill-code)
     form state mappings))
 
-(defn- find-symbols
+(defn find-symbols
   [state form]
-  (let [patvars (pp/pattern-vars form)
+  (let [patvars (parse/pattern-vars form)
 	clean #(or (get (:vars state) %) (multisegment? %))]
     (into #{} (remove clean patvars))))
 
-(defn- make-mappings
+(defn make-mappings
   [syms]
   (let [needed (filter #(and
 			 (not (multisegment? %))

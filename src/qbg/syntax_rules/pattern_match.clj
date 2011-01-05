@@ -1,5 +1,6 @@
 (ns qbg.syntax-rules.pattern-match
-  (:require [qbg.syntax-rules.template-fill :as tf]))
+  (:require [qbg.syntax-rules.core :as core]
+	    [qbg.syntax-rules.template :as template]))
 
 (declare exe-commands compile-pattern fixup-state)
 
@@ -272,8 +273,7 @@
 (defn- dirty-fill
   [template state]
   (let [state (fixup-state state)]
-    (binding [tf/*current-match* state]
-      (tf/fill-template template state)))) 
+    (template/fill-template template (:params state) state)))
 
 (defn- do-pattern
   [cmds template]
@@ -295,7 +295,7 @@
 (defn- do-guard
   [fn-n fn-m]
   (fn [state]
-    (binding [tf/*current-match* (fixup-state state)]
+    (binding [core/*current-match* (fixup-state state)]
       (let [guard-f (get (:params state) fn-n)
 	    mesg-f (get (:params state) fn-m)
 	    res (guard-f)]
