@@ -50,6 +50,10 @@
   (not (temp/contains-var? variable)))
 
 (defn make-apply-cases
+  "Return a fn that will try each rule in turn on its argument. Upon the first
+success, call the corresponding thunk with the match result implicitly. If none
+match, throw an appropriate exception, using name to describe the source of the
+error."
   [name rules thunks]
   (let [file *file*]
     (fn [form]
@@ -62,6 +66,7 @@
 	  (throw-match-error name results line file))))))
 
 (defmacro defsyntax-case
+  "syntax-case version of defsyntax-rules"
   [name docstring literals & rt-pairs]
   (assert (vector? literals))
   (let [rules (take-nth 2 rt-pairs)

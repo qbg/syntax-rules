@@ -1,45 +1,40 @@
 (ns qbg.syntax-rules.pattern.test.match
   (:use
     clojure.test
-    [qbg.syntax-rules.pattern.match :reload-all true]))
+    [qbg.syntax-rules.pattern.match :only [match] :reload-all true]
+    [qbg.syntax-rules.pattern :only [pattern]]))
 
-(defn s=
-  [res target]
-  (= target {:vars (:vars target) :good (:good target)}))
-
-(def match-baseline {:vars {} :good true})
-
+(defn vars
+  [vm]
+  (cond
+   (vector? vm) {:ell (vec (map vars vm))}
+   (map? vm) {:vars (into {} (map (fn [[k v]] [k (vars v)]) vm))}
+   :else {:val vm}))
+  
 (deftest test-match
-  (are [pattern form result] (s= (match pattern 'form) (merge match-baseline result))
-       (match-variable 'a) 5 {:vars {'a {:val 5}}}
-       (match-literal 5) 5 {}
-       (match-literal 5) 3 {:good false}
-       
-       (match-list (match-variable 'a) (match-variable 'b))
-       (1 2)
-       {:vars {'a {:val 1} 'b {:val 2}}}
-
-       (match-vector (match-variable 'a) (match-variable 'b))
-       [1 2]
-       {:vars {'a {:val 1} 'b {:val 2}}}
-
-       (match-list (match-variable 'a) (match-variable 'b))
-       [1 2]
-       {:good false}
-
-       (match-vector (match-variable 'a) (match-variable 'b))
-       (1 2)
-       {:good false}
-
-       (match-list (match-ellipsis (match-variable 'a)))
-       (1 2 3)
-       {:vars {'a {:ell [{:val 1} {:val 2} {:val 3}]}}}
-
-       (match-list (match-ellipsis (match-list (match-ellipsis (match-variable 'a)))))
-       ((1 2) (3))
-       {:vars {'a {:ell [{:ell [{:val 1} {:val 2}]} {:ell [{:val 3}]}]}}}
-
-       (match-head (match-variable 'a) (guard (fn [] 0) (fn [] "")))
-       5
-       {:good false}))
-
+  (are [pat form result] (= (:vars (match (pattern pat) 'form))
+			    (:vars (vars 'result)))
+       a 5 {a 5}
+       5 5 {}
+       [5 2] [5 2] {}
+       (a b) (1 2) {a 1 b 2}
+       [a b] [1 2] {a 1 b 2}
+       (a ...) (1 2 3) {a [1 2 3]}
+       ((a ...) ...) ((1 2) (3)) {a [[1 2] [3]]}
+       [1 (+head 2 3) 4] [1 2 3 4] {}
+       (+and [a] [1]) [1] {a 1}
+       (+or [:a a] [:b a]) [:a 5] {a 5}
+       (+or [:a a] [:b a]) [:b 5] {a 5}
+       [(+pattern a (+ 2 2))] [] {a 4}
+       [(+options [:a a] [:b b])] [:a 1 :b 2] {a 1 b 2}
+       [(+options [:a a] [:b b])] [:b 2 :a 1] {a 1 b 2}
+       [1 (+? 2) 3] [1 3] {}
+       [1 (+? 2) 3] [1 2 3] {})
+  (are [pat form] (= (:good (match (pattern pat) 'form)) false)
+       5 3
+       (a b) [1 2]
+       [a b] (1 2)
+       (+and [a] [2]) [1] 
+       (+head a (+guard 0 "")) 5
+       [1 (+? 2) 3] [1 4 3]
+       [(+options [:a a] [:b b])] [:b 2 :a 1 :b 2]))

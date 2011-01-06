@@ -5,11 +5,12 @@
   (:require
    [qbg.syntax-rules.pattern.match :as match]))
 
-(def stdopts {:literals #{}})
+(def stdopts {:literals #{'literal}})
 
 (deftest test-parse-symbol
   (are [form res] (= (parse-symbol 'form stdopts) res)
-       dolists `(match/match-variable '~'dolists)))
+       dolists `(match/match-variable '~'dolists)
+       literal `(match/match-literal '~'literal)))
 
 (deftest test-parse-literal
   (are [form res] (= (parse-literal 'form stdopts) res)

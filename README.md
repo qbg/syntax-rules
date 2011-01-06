@@ -63,7 +63,9 @@ this is useful as it makes `<patterns>` optional.
 The list `(+c <code>)` will execute `<code>` to create the matcher to be used
 for this pattern. These pattern matchers can be defined using the combinators in
 the `qbg.syntax-rules.pattern.match` namespace, or, if needed, the
-`qbg.syntax-rules.pattern.primitives` namespace.
+`qbg.syntax-rules.pattern.primitives` namespace. **Note:** There is a powerful
+correspondence between syntax classes and custom patterns. A syntax class is
+merely a custom pattern nested under a pattern variable.
 
 When a macro defined defsyntax-rules encounters a syntax error (that is, when
 none of the rules match), all of the rules are examined to determine which one
