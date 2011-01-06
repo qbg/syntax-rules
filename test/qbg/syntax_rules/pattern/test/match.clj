@@ -29,10 +29,12 @@
        [(+options [:a a] [:b b])] [:a 1 :b 2] {a 1 b 2}
        [(+options [:a a] [:b b])] [:b 2 :a 1] {a 1 b 2}
        [1 (+? 2) 3] [1 3] {}
-       [1 (+? 2) 3] [1 2 3] {})
+       [1 (+? 2) 3] [1 2 3] {}
+       (_ _) (1 2) {})
   (are [pat form] (= (:good (match (pattern pat) 'form)) false)
        5 3
        (a b) [1 2]
+       (a a) [1 2]
        [a b] (1 2)
        (+and [a] [2]) [1] 
        (+head a (+guard 0 "")) 5

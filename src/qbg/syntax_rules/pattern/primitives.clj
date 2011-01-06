@@ -53,9 +53,11 @@ one"
   (fn [state]
     (let [item (first (:input state))
 	  vm (get (:vars state) sym)]
-      (if vm
-	(fail-state state)
-	(assoc-in state [:vars sym :val] item)))))
+      (if (not= sym '_)
+	(if vm
+	  (fail-state state)
+	  (assoc-in state [:vars sym :val] item))
+	state))))
 
 (defn assert-pred
   "Fail if pred on the current item returns false, where mesg describes the
