@@ -37,7 +37,7 @@
 (defn match-vector
   "Match a vector whose contents match patterns."
   [& patterns]
-  (match-seq? vector? "vector" patterns))
+  (match-seq vector? "vector" patterns))
 
 (defn describe
   "Match pattern, describing pattern as mesg."
