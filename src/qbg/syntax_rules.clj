@@ -65,35 +65,90 @@ error."
 	    ((:template m)))
 	  (throw-match-error name results line file))))))
 
-(defmacro defsyntax-case
-  "syntax-case version of defsyntax-rules"
-  [name docstring literals & rt-pairs]
-  (assert (vector? literals))
-  (let [rules (take-nth 2 rt-pairs)
-	patternate (fn [r] `(pattern/pattern ~literals ~r))
-	good-rules (vec (map patternate rules))
-	thunks (take-nth 2 (rest rt-pairs))
-	thunkify (fn [c] `(fn [] ~c))
-	thunks (vec (map thunkify thunks))]
-    `(let [ac# (make-apply-cases '~name ~good-rules ~thunks)]
-       (defmacro ~name
-	 ~docstring
-	 {:arglists '~rules}
-	 [& ~'forms]
-	 (ac# ~'&form)))))
+(declare c-symbol c-string c-vector)
 
-(defmacro defsyntax-rules
+(defn- pred-core
+  [pred mesg]
+  (pattern/pattern
+   (+describe
+    mesg
+    (+head form
+	   (+guard (let [form (syntax form)]
+		     (if (pred form)
+		       false
+		       form))
+		   (format "expected %s" mesg))))))
+
+(defn- rule-code-pair
+  []
+  (pattern/pattern
+   (+describe
+    "rule-code pair"
+    (+head rule code))))
+
+(def ^{:private true} syntax-case-core
+  (make-apply-cases
+   'defsyntax-case
+   [(pattern/pattern
+     (defsyntax-case
+       name :> (pred-core symbol? "symbol")
+       (+? doc :> (pred-core string? "string"))
+       (+? literals :> (pred-core vector? "vector"))
+       pairs :> rule-code-pair ...))]
+   [(fn []
+      (let [attr {}
+	    attr (if (absent? 'doc) attr (conj attr {:doc (syntax doc)}))
+	    attr (conj attr {:arglists (syntax '(pairs.rule ...))})
+	    literals (if (absent? 'literals) [] (syntax literals))]
+	(syntax
+	 (let [ac (make-apply-cases
+		   'name
+		   [(pattern/pattern
+		     (+code [] literals)
+		     pairs.rule) ...]
+		   [(fn []
+		      pairs.code) ...])]
+	   (defmacro name
+	     (+code [] attr)
+	     [:! & :! forms]
+	     (ac :! &form))))))]))
+
+(defmacro defsyntax-case
+  {:doc "syntax-case version of defsyntax-rules"
+   :arglists '((defsyntax-case
+		name
+		(+? doc :> c-string)
+		(+? literals :> c-vector)
+		pairs :> rule-code-pair ...))}
+  [& forms]
+  (syntax-case-core &form))
+
+(defn- rule-template-pair
+  []
+  (pattern/pattern
+   (+describe
+    "rule-code pair"
+    (+head rule template))))
+
+(defn- maybe-expand
+  [sym]
+  (if (absent? sym)
+    []
+    [(syntax-to-form sym)]))
+
+(defsyntax-case defsyntax-rules
   "Define a macro that uses the rule-template pairs to expand all invokations"
-  [name docstring literals & rt-pairs]
-  (assert (vector? literals))
-  (let [rules (take-nth 2 rt-pairs)
-        templates (take-nth 2 (rest rt-pairs))
-	cases (map (fn [t] `(syntax ~t ~literals)) templates)
-	rt-pairs (interleave rules cases)]
-    `(defsyntax-case ~name
-       ~docstring
-       ~literals
-       ~@rt-pairs)))
+  (defsyntax-rules
+    name :> c-symbol
+    (+? doc :> c-string)
+    (+? literals :> c-vector)
+    pairs :> rule-template-pair ...)
+  (let [lits (if (absent? 'literals) [] (syntax literals))]
+    (syntax
+     (defsyntax-case name
+       (+scode [] (maybe-expand 'doc))
+       (+scode [] (maybe-expand 'literals))
+       :& [pairs.rule (syntax pairs.template (+code [] lits))] ...))))
 
 (defmacro defsyntax-class
   "Define a new syntax class"
@@ -131,6 +186,8 @@ error."
    :fail-when (pred-check pred (syntax form)) descript)
 
  c-symbol "symbol" "expected symbol" symbol?
+ c-list "list" "expected list" seq?
+ c-vector "vector" "expected vector" vector?
  c-number "number" "expected number" number?
  c-keyword "keyword" "expected keyword" keyword?
  c-map "map" "expected map" map?

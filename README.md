@@ -13,8 +13,9 @@ documents the usage of the library.
 
 ## Builtin syntax classes
 
-`c-symbol`, `c-number`, `c-keyword`, `c-map`, `c-set`, and `c-string`  are the
-syntax classes for symbols, numbers, keywords, maps, sets, and strings.
+`c-list`, `c-vector`, `c-symbol`, `c-number`, `c-keyword`, `c-map`, `c-set`,
+and `c-string`  are the syntax classes for lists (seqs), vectors, symbols,
+numbers, keywords, maps, sets, and strings.
 
 `c-pred` is the predicate syntax class. It takes two parameters: `pred` and
 `mesg`. A form will match this syntax class only if `(pred form)` returns true.
@@ -25,7 +26,6 @@ syntax classes for symbols, numbers, keywords, maps, sets, and strings.
 A `while` macro can be defined as:
     (defsyntax-rules while
       "Repeatedly execute body until condition is false"
-      []
       (while condition body ...)
       (loop []
         (when condition
@@ -35,7 +35,6 @@ A `while` macro can be defined as:
 A for-each-style `for` macro that supports multiple syntaxes can be defined as:
     (defsyntax-rules for
       "for-each style for loop"
-      []
       (for var :in coll body ...)
       (dorun (map (fn [var] body ...) coll))
       (for coll :as var body ...)
@@ -46,7 +45,6 @@ will have the same effect.
 The above `for` example can be simplified by the use of `+or` and `+head` patterns:
     (defsyntax-rules for
       "for-each style for loop"
-      []
       (for (+or :& [var :in coll]
       	        :& [coll :as var])
 	   body ...)
@@ -56,7 +54,6 @@ A CL/Scheme-style `let` with the flat binding structure of Clojure's `let` can
 be defined as:
     (defsyntax-rules plet
       "Scheme-style let"
-      []
       (plet [:& [var rhs] ...] body ...)
       ((fn [var ...] body ...) rhs ...))
 With this definition, `(plet [a 1 b 2] (+ a b))` will evaluate to `3`.
@@ -64,7 +61,6 @@ With this definition, `(plet [a 1 b 2] (+ a b))` will evaluate to `3`.
 A squaring macro can be defined as:
     (defsyntax-rules square
       "Square n"
-      []
       (square n)
       (let [x n]
         (* x x)))
@@ -77,7 +73,6 @@ supported to some degree. Even more, the keywords do not need to have a uniform
 structure, that is they can take a varying number of arguments:
     (defsyntax-rules foo
       "An interesting example"
-      []
       (foo (+or :& [:a a] :& [:b b c]) ...)
       '[[a ...] [[b c] ...]])
     
@@ -87,13 +82,11 @@ structure, that is they can take a varying number of arguments:
 A better version of `plet` can be defined using syntax classes:
     (defsyntax-class binding-vector []
       "binding vector"
-      []
       [:& [var :> c-symbol rhs] ...]
       :fail-when (check-duplicate (syntax (var ...))) "duplicate variable name")
     
     (defsyntax-rules plet
       "Scheme-style let"
-      []
       (plet bv :> binding-vector body ...)
       ((fn [bv.var ...] body ...) bv.rhs ...))
 The definition is this way because to `plet` it is considered a syntax error for
@@ -112,7 +105,6 @@ first definition.
 We can also define macros using the `syntax-case`-based interface:
     (defsyntax-case adder
       "Add two numbers together"
-      []
       (adder a b)
       `(+ ~(syntax a) ~(syntax b)))
     

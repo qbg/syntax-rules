@@ -45,6 +45,9 @@
    (ctor-form? form)
    [`(:literal ~(resolve-ctor form (:ns options))) options]
    
+   (namespace form)
+   [`(:literal ~(ns-resolve (:ns options) form)) options]
+
    :else [`(:variable ~form) options]))
 
 (defn parse-literal
