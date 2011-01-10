@@ -5,7 +5,7 @@
   [state]
   {:vars (if (:good state) (:vars state) {})
    :good (:good state)
-   :describe (peek (:dstack state))
+   :describe (:failure state)
    :progress (:progress state)})
 
 (defn fail-state
@@ -13,15 +13,16 @@
   (let [cause (peek (:dstack state))
 	ddepth (peek (:ddstack state))
 	depth (:depth state)]
-    (if (and (vector? cause) (= 1 (count cause)))
-      (let [delta (- depth ddepth)
-	    form (if (= delta 0)
-		   (first (:input state))
-		   (first (nth (:istack state) (dec delta))))
-	    mesg (peek (:dstack state))
-	    dstack (conj (pop (:dstack state)) (conj mesg form))]
-	(assoc state :good false :dstack dstack))
-      (assoc state :good false))))
+    (if (:failure state)
+      (assoc state :good false)
+      (if (and (vector? cause) (= 1 (count cause)))
+	(let [delta (- depth ddepth)
+	      form (if (= delta 0)
+		     (first (:input state))
+		     (first (nth (:istack state) (dec delta))))
+	      mesg (peek (:dstack state))]
+	  (assoc state :good false :failure (conj mesg form)))
+	(assoc state :good false :failure (peek (:dstack state)))))))
 
 (defn eval-in-context
   "Evaluate thunk in the context of the current match"
@@ -76,6 +77,11 @@ predicate"
   [lit]
   (assert-pred #(= % lit) (str lit)))
 
+(defn clear-failure
+  []
+  (fn [state]
+    (assoc state :failure false)))
+
 (defn forward
   "Move the input forward one item, failing if there is no more input in the
 current sequence"
@@ -121,22 +127,13 @@ current sequence"
 	:ddstack (conj (:ddstack state) (:depth state))
 	:dstack (conj (:dstack state) [mesg])))))
 
-(defn phase-out-describe
-  "Mark the current describe message as being ready to pop"
-  []
-  (fn [state]
-    (assoc state :pop-describe true)))
-
 (defn pop-describe
   "Pop the current describe message if it is ready to be popped"
   []
   (fn [state]
-    (if (:pop-describe state)
-      (assoc state
-	:dstack (pop (:dstack state))
-	:ddstack (pop (:ddstack state))
-	:pop-describe false)
-      state)))
+    (assoc state
+      :dstack (pop (:dstack state))
+      :ddstack (pop (:ddstack state)))))
 
 (defn push-vars
   "Push :vars onto :vstack"
@@ -242,7 +239,7 @@ If all cmds fail, the match fails with the state of the most successful cmd."
 	(if (and (:good new-state)
 		 (not= (:progress state) (:progress new-state)))
 	  (recur new-state)
-	  state)))))
+	  (assoc state :failure (:failure new-state)))))))
 
 (defn- dirty-fill
   [form-d state]
