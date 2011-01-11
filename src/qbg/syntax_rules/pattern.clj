@@ -14,6 +14,8 @@
      `(pattern [] ~form)))
 
 (defn parse-syntax-class
-  [description templater literals body]
-  (parse/build-class-pattern
-   description templater literals body))
+  [description parts]
+  `(match/describe
+    ~description
+    (match/match-or
+     ~@(map (fn [p] `(pattern (~'+head ~@p))) parts))))

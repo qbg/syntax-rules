@@ -2,8 +2,7 @@
   (:require
    [qbg.syntax-rules.core :as core]
    [qbg.syntax-rules.pattern :as pattern]
-   [qbg.syntax-rules.template :as temp]
-   [clojure.template :as t]))
+   [qbg.syntax-rules.template :as temp]))
 
 (defn- throw-match-error
   [name results line file]
@@ -67,17 +66,20 @@ error."
 
 (declare c-symbol c-string c-vector)
 
+(defn pred-check
+  "Return false if (pred coll) is true, coll otherwise"
+  [pred coll]
+  (if (pred coll)
+    false
+    coll))
+
 (defn- pred-core
   [pred mesg]
   (pattern/pattern
    (+describe
     mesg
-    (+head form
-	   (+guard (let [form (syntax form)]
-		     (if (pred form)
-		       false
-		       form))
-		   (format "expected %s" mesg))))))
+    (+head form (+guard (pred-check pred (syntax form))
+			(format "expected %s" mesg))))))
 
 (defn- rule-code-pair
   []
@@ -150,54 +152,61 @@ error."
        (+scode [] (maybe-expand 'literals))
        :& [pairs.rule (syntax pairs.template (+code [] lits))] ...))))
 
-(defmacro defsyntax-class
-  "Define a new syntax class"
-  [name args description literals & body]
-  (let [temp (fn [form] `(syntax ~form ~literals))
-	pat (pattern/parse-syntax-class description temp literals body)]
-    `(defn ~name
-       ~(format "The %s syntax class" name)
-       ~args
-       ~pat)))
+(defmacro syntax-class
+  [description & parts]
+  (pattern/parse-syntax-class description parts))
 
-(defn check-duplicate
-  "Return the duplicate item in coll if there is one, or false"
-  [coll]
-  (loop [seen #{}, coll coll]
-    (if (seq coll)
-      (if (contains? seen (first coll))
-	(first coll)
-	(recur (conj seen (first coll)) (next coll)))
-      false)))
+(defn c-pred
+  [pred mesg]
+  "The syntax class for an arbitrary predicate. mesg describes what pred will
+return true for."
+  (syntax-class
+   mesg
+   [form (+guard (pred-check pred (syntax form))
+		 (format "expected %s" mesg))]))
 
-(defn pred-check
-  "Return false if (pred coll) is true, coll otherwise"
-  [pred coll]
-  (if (pred coll)
-    false
-    coll))
-
-(t/do-template
- [name main-descript descript pred]
- (defsyntax-class name []
-   main-descript
-   []
-   form
-   :fail-when (pred-check pred (syntax form)) descript)
-
- c-symbol "symbol" "expected symbol" symbol?
- c-list "list" "expected list" seq?
- c-vector "vector" "expected vector" vector?
- c-number "number" "expected number" number?
- c-keyword "keyword" "expected keyword" keyword?
- c-map "map" "expected map" map?
- c-set "set" "expected set" set?
- c-string "string" "expected string" string?)
-
-(defsyntax-class c-pred [pred mesg]
-  "form satsifying predicate"
+(defn c-symbol
+  "Syntax class for a symbol"
   []
-  form
-  :fail-when
-  (pred-check pred (syntax form))
-  (format "expected %s" mesg))
+  (c-pred symbol? "symbol"))
+
+(defn c-symbol
+  "Syntax class for a symbol"
+  []
+  (c-pred symbol? "symbol"))
+
+(defn c-list
+  "Syntax class for a list/seq"
+  []
+  (c-pred seq? "list"))
+
+(defn c-vector
+  "Syntax class for a vector"
+  []
+  (c-pred vector? "vector"))
+
+(defn c-number
+  "Syntax class for a number"
+  []
+  (c-pred number? "number"))
+
+(defn c-keyword
+  "Syntax class for a keyword"
+  []
+  (c-pred keyword? "keyword"))
+
+(defn c-map
+  "Syntax class for a map"
+  []
+  (c-pred map? "keyword"))
+
+(defn c-set
+  "Syntax class for a set"
+  []
+  (c-pred set? "set"))
+
+(defn c-string
+  "Syntax class for a string"
+  []
+  (c-pred string? "string"))
+
