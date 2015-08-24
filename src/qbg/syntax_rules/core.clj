@@ -1,6 +1,6 @@
 (ns qbg.syntax-rules.core)
 
-(def *current-match*)
+(def ^:dynamic *current-match*)
 
 (defn order-progress
   [p1 p2]
